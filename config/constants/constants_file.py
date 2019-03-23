@@ -1,3 +1,3 @@
 FILE_PERMISSION_LOG = "a"
-FILE_PATH_LOG = "output/log/"
+FILE_PATH_LOG = "/home/viacheslav/PycharmProjects/DataGenerator/output/log/"
 FILE_EXTENSION_LOG = ".log"

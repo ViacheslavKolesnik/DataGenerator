@@ -1,4 +1,6 @@
 from logger.file_logger.file_logger import FileLogger
+from config.config_parser import ConfigurationParser
+from config.config import Config
 
 
 # main program class
@@ -9,6 +11,9 @@ class Launcher:
 	def __init__(self):
 		self.logger = FileLogger()
 		self.logger.info("Logger initialized. Starting data generator.")
+		self.logger.info("Parsing config files.")
+		ConfigurationParser(self.logger).parse_config()
+
 
 	# prepare to execute function
 	def __prepare(self):
