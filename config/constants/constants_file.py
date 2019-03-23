@@ -1,0 +1,3 @@
+FILE_PERMISSION_LOG = "a"
+FILE_PATH_LOG = "output/log/"
+FILE_EXTENSION_LOG = ".log"
