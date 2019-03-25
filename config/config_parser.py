@@ -21,8 +21,6 @@ from config_parameters.tag_config import TagConfig
 # class for parsing and storing config parameters
 # config_files - list of configuration files
 class ConfigurationParser:
-	config_files = None
-
 	# initializing method
 	# setting configuration files if passed else setting default configuration files
 	def __init__(self, logger, config_files=None):

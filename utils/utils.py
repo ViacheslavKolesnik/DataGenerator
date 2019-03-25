@@ -7,13 +7,20 @@ from logger.logger import Logger
 
 # class with helpful functions
 class Utils:
+	logger = None
+
+	# initialization function
+	@classmethod
+	def initialize(cls, logger):
+		cls.logger = logger
+
 	# divides two numbers
 	# handles ZeroDivisionError while division
 	# returns result of the division
-	@staticmethod
-	def divide(dividend, divider):
+	@classmethod
+	def divide(cls, dividend, divider):
 		if divider == 0:
-			Logger.fatal("Function {0}: Division by zero.".format(inspect.getouterframes(inspect.currentframe())[1].function))
+			cls.logger.fatal("Function {0}: Division by zero.".format(inspect.getouterframes(inspect.currentframe())[1].function))
 			exit(EXIT_CODE_DIVISION_BY_ZERO)
 		else:
 			return dividend / divider
@@ -21,10 +28,10 @@ class Utils:
 	# modulo operation for two numbers
 	# handles ZeroDivisionError while modulo
 	# returns result of the modulo operation
-	@staticmethod
-	def modulo(dividend, divider):
+	@classmethod
+	def modulo(cls, dividend, divider):
 		if divider == 0:
-			Logger.fatal("Function {0}: Division by zero.".format(inspect.getouterframes(inspect.currentframe())[1].function))
+			cls.logger.fatal("Function {0}: Division by zero.".format(inspect.getouterframes(inspect.currentframe())[1].function))
 			exit(EXIT_CODE_DIVISION_BY_ZERO)
 		else:
 			return dividend % divider

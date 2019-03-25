@@ -10,13 +10,12 @@ from logger.logger import Logger
 # log_file - file for writing log
 # log_file_permission - permission for log file
 class FileLogger(Logger):
-	log_file = None
-	log_file_permission = None
-
 	# initialization method
 	# setting log file
 	# setting log file permission
 	def __init__(self):
+		super(FileLogger, self).__init__()
+
 		self.log_file = FILE_PATH_LOG + str(datetime.now()) + FILE_EXTENSION_LOG
 		self.log_file_permission = FILE_PERMISSION_LOG
 

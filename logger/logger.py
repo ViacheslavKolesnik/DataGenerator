@@ -8,8 +8,11 @@ from config.constants.constants_log import LOG_INFO, LOG_ERROR, LOG_FATAL
 class Logger:
 	__metaclass__ = ABCMeta
 
-	info_enabled = True
-	error_enabled = True
+	# initialization function
+	@abstractmethod
+	def __init__(self):
+		self.info_enabled = True
+		self.error_enabled = True
 
 	# setting log levels
 	def set_log_levels(self, info_enabled, error_enabled):
