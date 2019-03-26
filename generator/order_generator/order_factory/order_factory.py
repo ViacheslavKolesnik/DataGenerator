@@ -3,13 +3,18 @@ from abc import ABCMeta, abstractmethod
 from generator.order_generator.order_DTOs.order import Order
 
 
+# class for making orders
 class OrderFactory:
 	__metaclass__ = ABCMeta
 
+	# initialization function
+	# set order parameters_provider
 	@abstractmethod
 	def __init__(self, order_parameters_provider):
 		self.order_parameters_provider = order_parameters_provider
 
+	# make order with zone independent parameters
+	# return Order
 	@abstractmethod
 	def make_order(self):
 		order = Order()

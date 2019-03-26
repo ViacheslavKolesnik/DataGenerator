@@ -43,6 +43,12 @@ class OrderGenerator(Generator):
 
 		return orders
 
+	# generates orders for specified zone
+	# orders - list of orders
+	# zone_right_border_number - max number of orders to be generated for specified zone
+	# order_factory - factory that specifies zone for which orders are generated
+	# amount - max amount of orders to be generated
+	# current_number_of_generated_values - number of orders generated in current generation process
 	def __generate_zone_dependent_order(self, orders, zone_right_border_number, order_factory, amount, current_number_of_generated_values):
 		if self.total_number_of_generated_values < zone_right_border_number:
 			while self.total_number_of_generated_values < zone_right_border_number and current_number_of_generated_values < amount:

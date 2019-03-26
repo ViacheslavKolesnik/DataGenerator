@@ -6,6 +6,8 @@ class Generator:
 	__metaclass__ = ABCMeta
 
 	# initialization function
+	# set logger
+	# set total number of generated values
 	def __init__(self, logger):
 		self.logger = logger
 		self.total_number_of_generated_values = 0

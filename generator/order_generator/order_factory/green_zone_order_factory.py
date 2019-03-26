@@ -5,10 +5,16 @@ from order_factory import OrderFactory
 from generator.order_generator.order_DTOs.order_status import OrderStatus
 from generator.order_generator.order_DTOs.order_status_timestamp import OrderStatusTimeStamp
 
+
+# class for making green zone orders
 class GreenZoneOrderFactory(OrderFactory):
+	# initialization function
+	# set order parameters_provider
 	def __init__(self, order_parameters_provider):
 		super(GreenZoneOrderFactory, self).__init__(order_parameters_provider)
 
+	# make order with green zone dependent parameters
+	# return Order
 	def make_order(self):
 		order = super(GreenZoneOrderFactory, self).make_order()
 

@@ -6,10 +6,15 @@ from generator.order_generator.order_DTOs.order_status import OrderStatus
 from generator.order_generator.order_DTOs.order_status_timestamp import OrderStatusTimeStamp
 
 
+# class for making red zone orders
 class RedZoneOrderFactory(OrderFactory):
+	# initialization function
+	# set order parameters_provider
 	def __init__(self, order_parameters_provider):
 		super(RedZoneOrderFactory, self).__init__(order_parameters_provider)
 
+	# make order with red zone dependent parameters
+	# return Order
 	def make_order(self):
 		order = super(RedZoneOrderFactory, self).make_order()
 

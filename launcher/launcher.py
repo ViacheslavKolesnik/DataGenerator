@@ -1,9 +1,18 @@
+from __future__ import division
+
+from math import ceil
+
+from config.constants.constants_file import FILE_PERMISSION_DATA_OUTPUT
+
 from logger.file_logger.file_logger import FileLogger
 from config.config_parser import ConfigurationParser
 from config.config import Config
 from utils.utils import Utils
 from utils.allocation_manager.memory_allocation_manager import MemoryAllocationManager
 from generator.order_generator.order_generator import OrderGenerator
+from service.file_service.writer.writer_file_service import WriterFileService
+from generator.order_generator.order_record_constructor.order_record_constructor import OrderRecordConstructor
+from serializer.string_serializer.order_record_string_serializer.order_record_string_serializer import OrderRecordStringSerializer
 
 
 # main program class
@@ -11,6 +20,10 @@ from generator.order_generator.order_generator import OrderGenerator
 class Launcher:
 	# main initializing function of Data Generator
 	# initialize logger
+	# initialize utils
+	# initialize memory allocation manager
+	# parse configurations
+	# initialize generator
 	def __init__(self):
 		self.logger = FileLogger()
 		self.logger.info("Logger initialized. Initializing data generator.")
@@ -24,6 +37,9 @@ class Launcher:
 		self.logger.info("Initializing generator.")
 		self.generator = OrderGenerator(self.logger)
 
+		self.logger.info("Initializing writer file service.")
+		self.writer_file_service = WriterFileService(self.logger, Config.file.data_output_file, FILE_PERMISSION_DATA_OUTPUT)
+
 
 	# prepare to execute function
 	def __prepare(self):
@@ -32,9 +48,19 @@ class Launcher:
 	# main execution function
 	def __execute(self):
 		self.logger.info("Starting data generator.")
-		for iterator in range(int(Config.order.number_of_orders_total / Config.order.number_of_orders_per_chunk)):
+
+		order_record_constructor = OrderRecordConstructor(self.logger)
+		string_serializer = OrderRecordStringSerializer(self.logger)
+
+		for iterator in range(int(ceil(Config.order.number_of_orders_total / Config.order.number_of_orders_per_chunk))):
 			values = self.generator.generate(Config.order.number_of_orders_per_chunk)
-			self.logger.info("Generated {0} orders.".format(len(values)))
+
+			order_records = order_record_constructor.construct_records_from_orders(values)
+			self.writer_file_service.write(order_records, string_serializer)
+
+		self.logger.info("Generated {0} values.".format(self.generator.total_number_of_generated_values))
+
+
 
 	# reporting function
 	def __report(self):
