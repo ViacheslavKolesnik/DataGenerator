@@ -1,0 +1,1 @@
+RABBITMQ_EXCHANGE = "orders_by_statuses"

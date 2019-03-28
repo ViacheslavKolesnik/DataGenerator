@@ -1,5 +1,8 @@
 from abc import ABCMeta, abstractmethod
-from config.constants.constants_log import LOG_INFO, LOG_ERROR, LOG_FATAL
+
+from config.constant.log import LOG_INFO, LOG_ERROR, LOG_FATAL
+
+from logger.log_level import LogLevel
 
 
 # logging abstract class
@@ -11,13 +14,11 @@ class Logger:
 	# initialization function
 	@abstractmethod
 	def __init__(self):
-		self.info_enabled = True
-		self.error_enabled = True
+		self.log_level = LogLevel.INFO.value
 
 	# setting log levels
-	def set_log_levels(self, info_enabled, error_enabled):
-		self.info_enabled = info_enabled
-		self.error_enabled = error_enabled
+	def set_log_level(self, log_level):
+		self.log_level = log_level
 
 	# general log writing function
 	# abstract method
@@ -29,12 +30,12 @@ class Logger:
 
 	# info log constructing function
 	def info(self, message):
-		if self.info_enabled:
+		if self.log_level <= LogLevel.INFO.value:
 			self.__write_log(LOG_INFO, message)
 
 	# error log constructing function
 	def error(self, message):
-		if self.error_enabled:
+		if self.log_level <= LogLevel.ERROR.value:
 			self.__write_log(LOG_ERROR, message)
 
 	# fatal log constructing function

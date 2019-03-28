@@ -1,0 +1,7 @@
+FILE_PERMISSION_LOG = "a"
+FILE_PATH_LOG = "/home/viacheslav/PycharmProjects/DataGenerator/output/log/"
+FILE_EXTENSION_LOG = ".log"
+FILE_PERMISSION_DATA_OUTPUT = "wb"
+FILE_PERMISSION_READ_DATA_OUTPUT = "rb"
+FILE_PERMISSION_REPORT = "w"
+FILE_EXTENSION_REPORT = ".txt"

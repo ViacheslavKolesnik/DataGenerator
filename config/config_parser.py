@@ -1,25 +1,26 @@
 from configparser import ConfigParser
 
-from constants.constants_config import DEFAULT_CONFIG_FILES
-from constants.constants_datetime import MIN_START_DATE_TIMESTAMP, MAX_START_DATE_TIMESTAMP
-from constants.constants_exit_codes import EXIT_CODE_FILE_ERROR, EXIT_CODE_CONFIG_READING_ERROR, EXIT_CODE_CONFIG_PARSING_ERROR, EXIT_CODE_CONFIG_PARSING_ERROR
+from config.constant.config import DEFAULT_CONFIG_FILES
+from config.constant.datetime import MIN_START_DATE_TIMESTAMP, MAX_START_DATE_TIMESTAMP
+from config.constant.exit_code import EXIT_CODE_FILE_ERROR, EXIT_CODE_CONFIG_READING_ERROR, EXIT_CODE_CONFIG_PARSING_ERROR, EXIT_CODE_CONFIG_PARSING_ERROR
 
 from utils.utils import Utils
-from config import Config
-from config_parameters.currency_config import CurrencyConfig
-from config_parameters.database_config import DataBaseConfig
-from config_parameters.date_config import DateConfig
-from config_parameters.description_config import DescriptionConfig
-from config_parameters.digit_config import DigitConfig
-from config_parameters.file_config import FileConfig
-from config_parameters.log_config import LogConfig
-from config_parameters.message_brocker_config import MessageBrokerConfig
-from config_parameters.order_config import OrderConfig
-from config_parameters.tag_config import TagConfig
+from logger.log_level import LogLevel
+from config.config import Config
+from config.config_parameter.currency import CurrencyConfig
+from config.config_parameter.database import DataBaseConfig
+from config.config_parameter.datetime import DateConfig
+from config.config_parameter.description import DescriptionConfig
+from config.config_parameter.digit import DigitConfig
+from config.config_parameter.file import FileConfig
+from config.config_parameter.log import LogConfig
+from config.config_parameter.message_brocker import MessageBrokerConfig
+from config.config_parameter.order import OrderConfig
+from config.config_parameter.tag import TagConfig
 
 
 # class for parsing and storing config parameters
-# config_files - list of configuration files
+# config_file - list of configuration files
 class ConfigurationParser:
 	# initializing method
 	# setting configuration files if passed else setting default configuration files
@@ -364,7 +365,9 @@ class ConfigurationParser:
 			self.logger.fatal("Error while parsing log configuration file occurred. Missing configuration file.")
 			exit(EXIT_CODE_CONFIG_PARSING_ERROR)
 
-		log_config.info_enabled = log['log_info_enabled'] == 'True'
-		log_config.error_enabled = log['log_error_enabled'] == 'True'
+		for log_level in LogLevel:
+			if log_level.name == log['log_level']:
+				log_config.log_level = log_level.value
+				break
 
 		return log_config

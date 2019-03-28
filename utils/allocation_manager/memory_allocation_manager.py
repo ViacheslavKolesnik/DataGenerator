@@ -1,6 +1,6 @@
 import inspect
 
-from config.constants.constants_exit_codes import EXIT_CODE_NOT_ENOUGH_MEMORY
+from config.constant.exit_code import EXIT_CODE_NOT_ENOUGH_MEMORY
 
 from logger.logger import Logger
 

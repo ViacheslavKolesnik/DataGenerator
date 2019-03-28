@@ -1,0 +1,2 @@
+ORDER_RECORD_INSERT_PATTERN = "INSERT INTO `order`(order_id, cur_pair, direction, status, datetime, init_px, fill_px, init_vol, fill_vol, description, tag) " \
+							  "VALUES({0}, '{1}', '{2}', '{3}', '{4}', {5}, {6}, {7}, {8}, '{9}', '{10}');"

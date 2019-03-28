@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package mapping;
+
+message Order{
+    string identifier = 1;
+	string direction = 2;
+	string currency_pair = 3;
+	float initial_px = 4;
+	float fill_px = 5;
+	float initial_volume = 6;
+	float fill_volume = 7;
+	string tag = 8;
+	string description = 9;
+}

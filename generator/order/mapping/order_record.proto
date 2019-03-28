@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package mapping;
+
+import "order.proto";
+
+message OrderRecord{
+    Order order = 1;
+    string status = 2;
+    int64 timestamp = 3;
+}
