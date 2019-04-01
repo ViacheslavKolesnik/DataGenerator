@@ -1,6 +1,7 @@
 import inspect
+from statistics import mean
 
-from config.constant.exit_code import EXIT_CODE_DIVISION_BY_ZERO
+from config.constant.exit_code import EXIT_CODE_DIVISION_BY_ZERO, EXIT_CODE_NUMBER_EXPECTED
 
 from logger.logger import Logger
 
@@ -41,3 +42,42 @@ class Utils:
 	@staticmethod
 	def get_list_from_string_with_coma_delimiter(string):
 		return string.split(',')
+
+	# accepts list of numbers
+	# returns maximum value in list
+	@staticmethod
+	def get_max(values):
+		return max(values)
+
+	# accepts list of numbers
+	# returns minimum value in list
+	@staticmethod
+	def get_min(values):
+		return min(values)
+
+	# accepts list of numbers
+	# returns rounded mean of all values in list
+	@classmethod
+	def get_mean(cls, values):
+		for value in values:
+			cls.__check_if_integer_or_float(value)
+
+		return round(mean(values))
+
+	# accepts list of numbers
+	# returns rounded sum of all values in list
+	@classmethod
+	def get_sum(cls, values):
+		for value in values:
+			cls.__check_if_integer_or_float(value)
+
+		return round(sum(values))
+
+	# accepts value
+	# passes if given value is integer or float
+	# if fails exits from program
+	@classmethod
+	def __check_if_integer_or_float(cls, value):
+		if not isinstance(value, int) and not isinstance(value, float):
+			cls.logger.fatal("Cannot get mean from given list. Values in list should be integers or floats.")
+			exit(EXIT_CODE_NUMBER_EXPECTED)

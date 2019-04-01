@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 
-from generator.order.entities.order_pb2 import Order
+from generator.order.entities.order import Order
 
 
 # class for making orders

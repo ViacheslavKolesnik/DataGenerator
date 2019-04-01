@@ -12,9 +12,16 @@ class ConnectionManager(ABC):
 		self.virtual_host = virtual_host
 		self.port = port
 
+		self.connection = None
+
 	@abstractmethod
 	def open_connection(self):
 		pass
+
 	@abstractmethod
-	def close_connection(self, connection):
+	def close_connection(self):
+		pass
+
+	@abstractmethod
+	def _reconnect(self):
 		pass

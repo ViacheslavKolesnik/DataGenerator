@@ -13,8 +13,8 @@ class Generator:
 		self.total_number_of_generated_values = 0
 
 	# data generation function
-	# accepts amount of data instances to generate
+	# accepts amount of data instances to generate and metric instance
 	# returns list of generated data
 	@abstractmethod
-	def generate(self, amount):
+	def generate(self, amount, metric):
 		pass

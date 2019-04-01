@@ -13,7 +13,7 @@ from google.protobuf import descriptor_pb2
 _sym_db = _symbol_database.Default()
 
 
-import generator.order.entities.order_pb2 as order__pb2
+import serializer.order_record.entity.order_pb2 as order__pb2
 
 
 DESCRIPTOR = _descriptor.FileDescriptor(

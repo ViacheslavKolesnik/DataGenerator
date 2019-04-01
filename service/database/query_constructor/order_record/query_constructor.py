@@ -1,21 +1,16 @@
 from config.constant.database import ORDER_RECORD_INSERT_PATTERN
 
-from serializer.serializer import Serializer
+from service.database.query_constructor.query_constructor import DBQueryConstructor
 
 
 # class for serializing order records into strings
-class OrderRecordDataBaseSerializer(Serializer):
+class OrderRecordDBQueryConstructor(DBQueryConstructor):
 
-	# initialization function
-	# set logger
-	def __init__(self, logger):
-		super(OrderRecordDataBaseSerializer, self).__init__(logger)
-
-	# serialize order records into strings
+	# construct order records into strings
 	# accepts list of order records
 	# returns list of strings
-	def serialize(self, order_record):
-		serialized_order_record = ORDER_RECORD_INSERT_PATTERN.format(
+	def construct(self, order_record):
+		order_record_db_query = ORDER_RECORD_INSERT_PATTERN.format(
 			order_record.order.identifier,
 			order_record.order.currency_pair,
 			order_record.order.direction,
@@ -29,4 +24,4 @@ class OrderRecordDataBaseSerializer(Serializer):
 			order_record.order.tag
 		)
 
-		return serialized_order_record
+		return order_record_db_query

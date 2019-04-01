@@ -1,4 +1,5 @@
 from datetime import datetime
+import os
 
 from config.constant.file import FILE_PATH_LOG, FILE_EXTENSION_LOG, FILE_PERMISSION_LOG
 from config.constant.exit_code import EXIT_CODE_UNKNOWN_ERROR, EXIT_CODE_FILE_ERROR
@@ -13,10 +14,13 @@ class FileLogger(Logger):
 	# initialization method
 	# setting log file
 	# setting log file permission
-	def __init__(self):
+	def __init__(self, program_start_time):
 		super(FileLogger, self).__init__()
 
-		self.log_file = FILE_PATH_LOG + str(datetime.now()) + FILE_EXTENSION_LOG
+		self.log_file = FILE_PATH_LOG + str(program_start_time) + FILE_EXTENSION_LOG
+		directory = os.path.dirname(self.log_file)
+		os.makedirs(directory, exist_ok=True)
+
 		self.log_file_permission = FILE_PERMISSION_LOG
 
 	# general log writing function

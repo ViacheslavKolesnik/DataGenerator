@@ -1,6 +1,5 @@
 from configparser import ConfigParser
 
-from config.constant.config import DEFAULT_CONFIG_FILES
 from config.constant.datetime import MIN_START_DATE_TIMESTAMP, MAX_START_DATE_TIMESTAMP
 from config.constant.exit_code import EXIT_CODE_FILE_ERROR, EXIT_CODE_CONFIG_READING_ERROR, EXIT_CODE_CONFIG_PARSING_ERROR, EXIT_CODE_CONFIG_PARSING_ERROR
 
@@ -17,22 +16,16 @@ from config.config_parameter.log import LogConfig
 from config.config_parameter.message_brocker import MessageBrokerConfig
 from config.config_parameter.order import OrderConfig
 from config.config_parameter.tag import TagConfig
+from config.parser.config_parser import ConfigurationParser
 
 
-# class for parsing and storing config parameters
+# class for parsing and storing config parameters from ini files
 # config_file - list of configuration files
-class ConfigurationParser:
+class INIConfigurationParser(ConfigurationParser):
 	# initializing method
 	# setting configuration files if passed else setting default configuration files
-	def __init__(self, logger, config_files=None):
-		self.logger = logger
-		self.number_of_errors_in_configurations = 0
-		if config_files is not None:
-			self.config_files = config_files
-			self.logger.info("Configuration files specified. Using user configurations.")
-		else:
-			self.config_files = DEFAULT_CONFIG_FILES
-			self.logger.info("No configuration files specified. Using default configurations.")
+	def __init__(self, logger, config_files):
+		super(INIConfigurationParser, self).__init__(logger, config_files)
 
 	# reading config files into ConfigParser object
 	# config_parser - ConfigParser object
@@ -299,7 +292,7 @@ class ConfigurationParser:
 			self.logger.fatal("Error while parsing file configuration file occurred. Missing configuration file.")
 			exit(EXIT_CODE_CONFIG_PARSING_ERROR)
 
-		file_config.data_output_file = file['data_output_file']
+		file_config.data_output_file_path = file['data_output_file_path']
 		file_config.report_file_path = file['report_file_path']
 
 		return file_config

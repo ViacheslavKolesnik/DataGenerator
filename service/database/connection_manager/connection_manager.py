@@ -12,9 +12,15 @@ class ConnectionManager(ABC):
 		self.port = port
 		self.database_name = database_name
 
+		self.connection = None
+
 	@abstractmethod
 	def open_connection(self):
 		pass
 	@abstractmethod
-	def close_connection(self, connection):
+	def close_connection(self):
+		pass
+
+	@abstractmethod
+	def _reconnect(self):
 		pass

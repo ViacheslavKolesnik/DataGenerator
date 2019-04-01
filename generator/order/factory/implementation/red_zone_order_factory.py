@@ -2,7 +2,7 @@ from config.constant.status import *
 from config.constant.datetime import NUMBER_OF_DATES_RED_ZONE
 
 from generator.order.factory.order_factory import OrderFactory
-from generator.order.entities.order_record_pb2 import OrderRecord
+from generator.order.entities.order_record import OrderRecord
 from generator.order.strategy.final_status_context import FinalStatusContext
 from utils.allocation_manager.memory_allocation_manager import MemoryAllocationManager
 
@@ -21,9 +21,9 @@ class RedZoneOrderFactory(OrderFactory):
 		order_records = MemoryAllocationManager.get_list()
 
 		order_record_to_provider = OrderRecord()
-		order_record_to_provider.order.CopyFrom(order)
+		order_record_to_provider.order = order
 		order_record_final = OrderRecord()
-		order_record_final.order.CopyFrom(order)
+		order_record_final.order = order
 
 		order_record_to_provider.status = STATUS_TO_PROVIDER
 		final_status = self.order_parameters_provider.generate_final_status()
