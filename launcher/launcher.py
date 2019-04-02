@@ -163,9 +163,3 @@ class Launcher:
 		metric = self.__execute(logger, message_broker_connection_manager, db_connection_manager, program_start_time)
 		self.__report(logger, program_start_time, metric)
 		self.__finish(message_broker_connection_manager, db_connection_manager)
-
-
-# Entry point to Data Generator
-if __name__ == "__main__":
-	launcher = Launcher()
-	launcher.launch()
