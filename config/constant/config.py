@@ -1,4 +1,4 @@
-DEFAULT_CONFIG_FILES_PATH = "/home/viacheslav/PycharmProjects/DataGenerator/config_file/"
+DEFAULT_CONFIG_FILES_PATH = "config_file/"
 DEFAULT_CONFIG_FILES_EXTENSION = ".ini"
 DEFAULT_CONFIG_FILES = [
 	DEFAULT_CONFIG_FILES_PATH + "config_currency" + DEFAULT_CONFIG_FILES_EXTENSION,

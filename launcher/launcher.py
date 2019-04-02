@@ -74,7 +74,7 @@ class Launcher:
 		logger.info("Starting data order_generator.")
 		generator = OrderGenerator(logger)
 
-		data_output_file = Config.file.data_output_file_path + str(program_start_time) + FILE_EXTENSION_DATA_OUTPUT
+		data_output_file = Config.file.data_output_file_path + program_start_time + FILE_EXTENSION_DATA_OUTPUT
 		writer_file_service = FileWriter(logger, data_output_file, FILE_PERMISSION_DATA_OUTPUT)
 		reader_file_service = ReaderFileService(logger, data_output_file, FILE_PERMISSION_READ_DATA_OUTPUT)
 
@@ -142,7 +142,7 @@ class Launcher:
 
 	# reporting function
 	def __report(self, logger, program_start_time, metric):
-		report_file = Config.file.report_file_path + str(program_start_time) + FILE_EXTENSION_REPORT
+		report_file = Config.file.report_file_path + program_start_time + FILE_EXTENSION_REPORT
 		writer_service = FileWriter(logger, report_file, FILE_PERMISSION_REPORT)
 
 		reporter = Reporter(writer_service)
@@ -157,7 +157,7 @@ class Launcher:
 	# reporting program work
 	# finishing program
 	def launch(self):
-		program_start_time = datetime.now()
+		program_start_time = str(datetime.now()).replace(":", "-")
 
 		logger, message_broker_connection_manager, db_connection_manager = self.__initialize(program_start_time)
 		metric = self.__execute(logger, message_broker_connection_manager, db_connection_manager, program_start_time)
