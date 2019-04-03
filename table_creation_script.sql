@@ -5,6 +5,7 @@ USE `simcord`;
 DROP TABLE IF EXISTS `order`;
 
 CREATE TABLE `order` (
+  `id` BIGINT NOT NULL auto_increment,
   `order_id` decimal(20,0) NOT NULL,
   `cur_pair` varchar(12) NOT NULL,
   `direction` varchar(5) NOT NULL,
@@ -15,5 +16,6 @@ CREATE TABLE `order` (
   `init_vol` decimal(20,8) NOT NULL,
   `fill_vol` decimal(20,8) NOT NULL,
   `description` varchar(45) NOT NULL,
-  `tag` varchar(12) NOT NULL
+  `tag` varchar(12) NOT NULL,
+  primary key (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
