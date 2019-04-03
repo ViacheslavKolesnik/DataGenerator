@@ -20,11 +20,8 @@ Writes data to database.
 ## Run steps
 Install python.
 
-Install pymysql: `python -m pip install pymysql==0.9.3`.
-
-Install pika: `python -m pip install pika==0.13.0`.
-
-Install protobuf `python -m pip install protobuf==3.7.1`.
+Install additional modules:
+`python -m pip install -r ./requirements.txt`
 
 Install MySQL server:
   - linux:
