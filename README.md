@@ -42,21 +42,22 @@ Create RabbitMQ exchange and queues.
 Create MySQL database and table with following structure:
 
 ```
-+-------------+---------------+------+-----+---------+-------+
-| Field       | Type          | Null | Key | Default | Extra |
-+-------------+---------------+------+-----+---------+-------+
-| order_id    | decimal(20,0) | NO   |     | NULL    |       |
-| cur_pair    | varchar(12)   | NO   |     | NULL    |       |
-| direction   | varchar(5)    | NO   |     | NULL    |       |
-| status      | varchar(15)   | NO   |     | NULL    |       |
-| datetime    | bigint(13)    | NO   |     | NULL    |       |
-| init_px     | decimal(20,5) | NO   |     | NULL    |       |
-| fill_px     | decimal(20,5) | NO   |     | NULL    |       |
-| init_vol    | decimal(20,8) | NO   |     | NULL    |       |
-| fill_vol    | decimal(20,8) | NO   |     | NULL    |       |
-| description | varchar(45)   | NO   |     | NULL    |       |
-| tag         | varchar(12)   | NO   |     | NULL    |       |
-+-------------+---------------+------+-----+---------+-------+
++-------------+---------------+------+-----+---------+----------------+
+| Field       | Type          | Null | Key | Default | Extra          |
++-------------+---------------+------+-----+---------+----------------+
+| id          | bigint(20)    | NO   | PRI | NULL    | auto_increment |
+| order_id    | decimal(20,0) | NO   |     | NULL    |                |
+| cur_pair    | varchar(12)   | NO   |     | NULL    |                |
+| direction   | varchar(5)    | NO   |     | NULL    |                |
+| status      | varchar(15)   | NO   |     | NULL    |                |
+| datetime    | bigint(13)    | NO   |     | NULL    |                |
+| init_px     | decimal(20,5) | NO   |     | NULL    |                |
+| fill_px     | decimal(20,5) | NO   |     | NULL    |                |
+| init_vol    | decimal(20,8) | NO   |     | NULL    |                |
+| fill_vol    | decimal(20,8) | NO   |     | NULL    |                |
+| description | varchar(45)   | NO   |     | NULL    |                |
+| tag         | varchar(12)   | NO   |     | NULL    |                |
++-------------+---------------+------+-----+---------+----------------+
 ```
 
 Edit configs(DataGenerator/config_files/) according to your database/RabbitMQ and other configurations.
