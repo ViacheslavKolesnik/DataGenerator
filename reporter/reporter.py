@@ -1,14 +1,19 @@
+from abc import ABC, abstractmethod
+
 from config.config import Config
 
 from utils.utils import Utils
 
-class Reporter:
-	def __init__(self, writer_service):
-		self.writer_service = writer_service
 
+class Reporter(ABC):
+	@abstractmethod
+	def __init__(self):
+		pass
+
+	@abstractmethod
 	def report(self, metric):
 		report = self.__construct_report(metric)
-		self.writer_service.write(report)
+		return report
 
 	def __construct_report(self, metric):
 		report = "Startup configurations:\n" \

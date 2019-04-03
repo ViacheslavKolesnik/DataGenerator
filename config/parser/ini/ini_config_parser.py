@@ -1,7 +1,10 @@
 from configparser import ConfigParser
 
+from config.config_parameter.report import ReportConfig
 from config.constant.datetime import MIN_START_DATE_TIMESTAMP, MAX_START_DATE_TIMESTAMP
 from config.constant.exit_code import EXIT_CODE_FILE_ERROR, EXIT_CODE_CONFIG_READING_ERROR, EXIT_CODE_CONFIG_PARSING_ERROR, EXIT_CODE_CONFIG_PARSING_ERROR
+from config.constant.log import LOG_OUTPUT_FILE, LOG_OUTPUT_CONSOLE
+from config.constant.other import REPORT_OUTPUT_CONSOLE, REPORT_OUTPUT_FILE
 
 from utils.utils import Utils
 from logger.log_level import LogLevel
@@ -63,6 +66,7 @@ class INIConfigurationParser(ConfigurationParser):
 		Config.database = self.__parse_database_config(config_parser)
 		Config.message_broker = self.__parse_message_broker_config(config_parser)
 		Config.log = self.__parse_log_config(config_parser)
+		Config.report = self.__parse_report_config(config_parser)
 
 		if self.number_of_errors_in_configurations == 0:
 			self.logger.info("Config parsing successful.")
@@ -363,4 +367,34 @@ class INIConfigurationParser(ConfigurationParser):
 				log_config.log_level = log_level.value
 				break
 
+		if log['log_output'] == LOG_OUTPUT_FILE:
+			log_config.log_output = LOG_OUTPUT_FILE
+		elif log['log_output'] == LOG_OUTPUT_CONSOLE:
+			log_config.log_output = LOG_OUTPUT_CONSOLE
+		else:
+			self.number_of_errors_in_configurations += 1
+			self.logger.error("Invalid logger type. Should be '{0}' or '{1}'".format(LOG_OUTPUT_CONSOLE, LOG_OUTPUT_FILE))
+
 		return log_config
+
+	# parsing log related parameters
+	# return LogConfig object
+	def __parse_report_config(self, config_parser):
+		report = None
+		report_config = ReportConfig()
+
+		try:
+			report = config_parser['report']
+		except:
+			self.logger.fatal("Error while parsing report configuration file occurred. Missing configuration file.")
+			exit(EXIT_CODE_CONFIG_PARSING_ERROR)
+
+		if report['report_output'] == REPORT_OUTPUT_FILE:
+			report_config.report_output = REPORT_OUTPUT_FILE
+		elif report['report_output'] == REPORT_OUTPUT_CONSOLE:
+			report_config.report_output = REPORT_OUTPUT_CONSOLE
+		else:
+			self.number_of_errors_in_configurations += 1
+			self.logger.error("Invalid logger type. Should be '{0}' or '{1}'".format(REPORT_OUTPUT_CONSOLE, REPORT_OUTPUT_FILE))
+
+		return report_config

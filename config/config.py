@@ -20,3 +20,4 @@ class Config:
 	database = None
 	message_broker = None
 	log = None
+	report = None

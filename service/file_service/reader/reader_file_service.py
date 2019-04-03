@@ -29,5 +29,4 @@ class ReaderFileService(FileService):
 		except:
 			self.logger.error("Error occured while reading from file.")
 
-		self.logger.info("Read {0} lines from file.".format(len(lines)))
 		return lines

@@ -73,5 +73,4 @@ class RabbitMQConnectionManager(ConnectionManager):
 		try:
 			channel.close()
 		except ChannelClosed:
-			# Log and suppress broker-closed channel
 			self.logger.warn('Got ChannelClosed while closing channel.')
