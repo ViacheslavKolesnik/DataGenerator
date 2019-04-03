@@ -1,3 +1,9 @@
+CREATE DATABASE IF NOT EXISTS `simcord`;
+
+USE `simcord`;
+
+DROP TABLE IF EXISTS `order`;
+
 CREATE TABLE `order` (
   `order_id` decimal(20,0) NOT NULL,
   `cur_pair` varchar(12) NOT NULL,
