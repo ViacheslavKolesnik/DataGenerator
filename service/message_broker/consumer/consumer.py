@@ -1,15 +1,19 @@
 from abc import ABC, abstractmethod
 
 
-class MessageBroker(ABC):
+class Consumer(ABC):
 	@abstractmethod
 	def __init__(self, logger, *args):
 		self.logger = logger
 
 	@abstractmethod
-	def add_publisher(self, *args):
+	def start(self):
 		pass
 
 	@abstractmethod
-	def add_consumer(self, *args):
+	def _consume(self, *args):
+		pass
+
+	@abstractmethod
+	def _on_consume(self, *args):
 		pass

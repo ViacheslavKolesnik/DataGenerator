@@ -1,8 +1,4 @@
-from google.protobuf.internal.decoder import _DecodeVarint32
-
-from utils.allocation_manager.memory_allocation_manager import MemoryAllocationManager
 from service.file_service.file_service import FileService
-from generator.order.entities.order_record import OrderRecord
 
 
 # service for writing to file

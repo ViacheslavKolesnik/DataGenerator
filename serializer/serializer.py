@@ -10,3 +10,7 @@ class Serializer:
 	@abstractmethod
 	def serialize(self, *args):
 		pass
+
+	@abstractmethod
+	def deserialize(self, *args):
+		pass

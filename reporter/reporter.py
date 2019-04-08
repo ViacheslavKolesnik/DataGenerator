@@ -24,7 +24,7 @@ class Reporter(ABC):
 				 "-Chunk size: {4}.\n"\
 				 "----------------------------------\n"\
 				 "Results:\n"\
-				 "{5}\n{6}\n{7}\n{8}\n{9}\n{10}\n{11}\n{12}".format(
+				 "{5}\n{6}\n{7}\n{8}\n{9}\n{10}".format(
 					 Config.order.number_of_orders_zone_red,
 					 Config.order.number_of_orders_zone_green,
 					 Config.order.number_of_orders_zone_blue,
@@ -34,9 +34,7 @@ class Reporter(ABC):
 					 self.__construct_operation_report("Red zone generation", metric.get_red_zone_order_generation()),
 					 self.__construct_operation_report("Green zone generation", metric.get_green_zone_order_generation()),
 					 self.__construct_operation_report("Blue zone generation", metric.get_blue_zone_order_generation()),
-					 self.__construct_operation_report("File insertion", metric.get_file_insertion()),
 					 self.__construct_operation_report("Message publishing", metric.get_message_broker_publishing()),
-					 self.__construct_operation_report("File reading and parsing", metric.get_file_reading_and_parsing()),
 					 self.__construct_operation_report("Database writing", metric.get_database_writing())
 				 )
 

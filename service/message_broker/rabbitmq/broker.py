@@ -2,49 +2,63 @@ import pika
 
 from config.constant.message_broker import *
 from service.message_broker.broker import MessageBroker
+from service.message_broker.publisher.rabbitmq.rabbitmq_publisher import RabbitMQPublisher
+from service.message_broker.consumer.rabbitmq.rabbitmq_consumer import RabbitMQConsumer
+from utils.allocation_manager.memory_allocation_manager import MemoryAllocationManager
 
 
 class RabbitMQ(MessageBroker):
-	def __init__(self, logger, channel):
+	def __init__(self, logger, connection):
 		super(RabbitMQ, self).__init__(logger)
-		self.channel = channel
+		self.connection = connection
+		self.publishers = MemoryAllocationManager.get_list()
+		self.consumers = MemoryAllocationManager.get_list()
 
-	def setup(self):
-		super(RabbitMQ, self).setup()
+	def add_publisher(self, exchange, exchange_type, queue, routing_keys):
+		channel = self.connection.channel()
+		self.__setup_publisher(channel, exchange, exchange_type, queue, routing_keys)
 
-		self.__exchange_declare(exchange=RABBITMQ_EXCHANGE,
-								exchange_type=RABBITMQ_EXCHANGE_TYPE,
+		publisher = RabbitMQPublisher(self.logger, channel, exchange, routing_keys)
+
+		self.publishers.append(publisher)
+
+	def add_consumer(self, message_broker_connection_manager, storage, queue):
+		channel = self.connection.channel()
+		self.__setup_consumer(channel, queue)
+
+		consumer = RabbitMQConsumer(self.logger, storage, message_broker_connection_manager, queue)
+
+		self.consumers.append(consumer)
+
+	def start_consumers(self):
+		for consumer in self.consumers:
+			consumer.start()
+
+	def __setup_publisher(self, channel, exchange, exchange_type, queue, routing_keys):
+		self.__exchange_declare(channel,
+								exchange=exchange,
+								exchange_type=exchange_type,
 								passive=RABBITMQ_EXCHANGE_DECLARE_PASSIVE,
 								durable=RABBITMQ_EXCHANGE_DURABLE)
-		self.__queue_declare(queue=RABBITMQ_QUEUE_NEW,
-								passive=RABBITMQ_QUEUE_DECLARE_PASSIVE,
-								durable=RABBITMQ_QUEUE_DURABLE)
-		self.__queue_declare(queue=RABBITMQ_QUEUE_TO_PROVIDER,
-								passive=RABBITMQ_QUEUE_DECLARE_PASSIVE,
-								durable=RABBITMQ_QUEUE_DURABLE)
-		self.__queue_declare(queue=RABBITMQ_QUEUE_FINAL,
-								passive=RABBITMQ_QUEUE_DECLARE_PASSIVE,
-								durable=RABBITMQ_QUEUE_DURABLE)
+		self.__queue_declare(channel,
+							 queue=queue,
+							 passive=RABBITMQ_QUEUE_DECLARE_PASSIVE,
+							 durable=RABBITMQ_QUEUE_DURABLE)
+		for routing_key in routing_keys:
+			self.__queue_bind(channel,
+							  queue=queue,
+							  exchange=exchange,
+							  routing_key=routing_key)
 
-		self.__queue_bind(queue=RABBITMQ_QUEUE_NEW,
-						  exchange=RABBITMQ_EXCHANGE,
-						  routing_key=RABBITMQ_QUEUE_BIND_ROUTING_KEY_NEW)
-		self.__queue_bind(queue=RABBITMQ_QUEUE_TO_PROVIDER,
-						  exchange=RABBITMQ_EXCHANGE,
-						  routing_key=RABBITMQ_QUEUE_BIND_ROUTING_KEY_TO_PROVIDER)
-		self.__queue_bind(queue=RABBITMQ_QUEUE_FINAL,
-						  exchange=RABBITMQ_EXCHANGE,
-						  routing_key=RABBITMQ_QUEUE_BIND_ROUTING_KEY_FILLED)
-		self.__queue_bind(queue=RABBITMQ_QUEUE_FINAL,
-						  exchange=RABBITMQ_EXCHANGE,
-						  routing_key=RABBITMQ_QUEUE_BIND_ROUTING_KEY_PARTIAL_FILLED)
-		self.__queue_bind(queue=RABBITMQ_QUEUE_FINAL,
-						  exchange=RABBITMQ_EXCHANGE,
-						  routing_key=RABBITMQ_QUEUE_BIND_ROUTING_KEY_REJECTED)
+	def __setup_consumer(self, channel, queue):
+		self.__queue_declare(channel,
+							 queue=queue,
+							 passive=RABBITMQ_QUEUE_DECLARE_PASSIVE,
+							 durable=RABBITMQ_QUEUE_DURABLE)
 
-	def __exchange_declare(self, exchange=None, exchange_type='direct', passive=False, durable=False, auto_delete=False):
+	def __exchange_declare(self, channel, exchange=None, exchange_type='direct', passive=False, durable=False, auto_delete=False):
 		try:
-			self.channel.exchange_declare(exchange=exchange,
+			channel.exchange_declare(exchange=exchange,
 										  exchange_type=exchange_type,
 										  passive=passive,
 										  durable=durable,
@@ -53,9 +67,9 @@ class RabbitMQ(MessageBroker):
 			self.logger.fatal("Error. Unable to declare exchange.")
 			self.logger.fatal(ex)
 
-	def __queue_declare(self, queue, passive=False, durable=False, exclusive=False, auto_delete=False):
+	def __queue_declare(self, channel, queue, passive=False, durable=False, exclusive=False, auto_delete=False):
 		try:
-			self.channel.queue_declare(queue=queue,
+			channel.queue_declare(queue=queue,
 									   passive=passive,
 									   durable=durable,
 									   exclusive=exclusive,
@@ -64,9 +78,9 @@ class RabbitMQ(MessageBroker):
 			self.logger.fatal("Error. Unable to declare queue.")
 			self.logger.fatal(ex)
 
-	def __queue_bind(self, queue, exchange, routing_key):
+	def __queue_bind(self, channel, queue, exchange, routing_key):
 		try:
-			self.channel.queue_bind(queue=queue,
+			channel.queue_bind(queue=queue,
 									exchange=exchange,
 									routing_key=routing_key)
 		except Exception as ex:

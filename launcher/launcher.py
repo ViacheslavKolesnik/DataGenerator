@@ -2,7 +2,7 @@ from math import ceil
 from datetime import datetime
 
 from config.constant.file import *
-from config.constant.message_broker import RABBITMQ_EXCHANGE
+from config.constant.message_broker import *
 from config.constant.config import DEFAULT_CONFIG_FILES
 
 from logger.console.console_logger import ConsoleLogger
@@ -14,18 +14,16 @@ from service.message_broker.rabbitmq.broker import RabbitMQ
 from utils.utils import Utils
 from utils.allocation_manager.memory_allocation_manager import MemoryAllocationManager
 from generator.order.order_generator import OrderGenerator
-from service.file_service.writer.writer_file_service import FileWriter
-from service.file_service.reader.reader_file_service import ReaderFileService
+from service.file_service.writer.csv_writer import CSVFileWriter
+from service.file_service.reader.csv_reader import CSVFileReader
 from serializer.order_record.serializer import OrderRecordSerializer
 from service.message_broker.connection_manager.rabbitmq.rabbitmq_connection_manager import RabbitMQConnectionManager
-from service.message_broker.publisher.rabbitmq.rabbitmq_publisher import RabbitMQPublisher
 from service.database.query_constructor.order_record.query_constructor import OrderRecordDBQueryConstructor
 from service.database.connection_manager.mysql.mysql_connection_manager import MySQLConnectionManager
 from service.database.service.mysql.mysql_service import MySQLService
-from reporter.reporter import Reporter
-from generator.order.parser.order_record_from_string import OrderRecordFromString
 from metric.generator.order_generator.metric import OrderGeneratorMetric
 from metric.decorator.metric_decorator import timeit
+from service.storage.storage import Storage
 
 
 # main program class
@@ -55,20 +53,13 @@ class Launcher:
 		logger.info("Setting log level.")
 		logger.set_log_level(Config.log.log_level)
 
-		logger.info("Establishing message broker connection.")
+		logger.info("Initializing message broker connection manager.")
 		message_broker_connection_manager = RabbitMQConnectionManager(logger,
 													   user=Config.message_broker.user,
 													   password=Config.message_broker.password,
 													   host=Config.message_broker.host,
 													   virtual_host=Config.message_broker.virtual_host,
 													   port=Config.message_broker.port)
-		message_broker_connection_manager.open_connection()
-
-		logger.info("Setting up message broker.")
-		channel = message_broker_connection_manager.get_channel()
-		message_broker = RabbitMQ(logger, channel)
-		message_broker.setup()
-		message_broker_connection_manager.close_channel(channel)
 
 		logger.info("Establishing database connection.")
 		db_connection_manager = MySQLConnectionManager(logger,
@@ -82,43 +73,64 @@ class Launcher:
 		return logger, message_broker_connection_manager, db_connection_manager
 
 	# main execution function
-	def __execute(self, logger, message_broker_connection_manager, db_connection_manager, program_start_time):
+	def __execute(self, logger, message_broker_connection_manager, db_connection_manager):
 		generator = OrderGenerator(logger)
-
-		data_output_file = Config.file.data_output_file_path + program_start_time + FILE_EXTENSION_DATA_OUTPUT
-		writer_file_service = FileWriter(logger, data_output_file, FILE_PERMISSION_DATA_OUTPUT)
-		reader_file_service = ReaderFileService(logger, data_output_file, FILE_PERMISSION_READ_DATA_OUTPUT)
 
 		serializer = OrderRecordSerializer()
 
-		channel = message_broker_connection_manager.get_channel()
-		publisher = RabbitMQPublisher(logger, channel)
+		storage = Storage()
+
+		message_broker_general_connection = message_broker_connection_manager.open_connection()
+		message_broker = RabbitMQ(logger, message_broker_general_connection)
+		message_broker.add_publisher(RABBITMQ_EXCHANGE,
+													 RABBITMQ_EXCHANGE_TYPE,
+													 RABBITMQ_QUEUE_NEW,
+													 [RABBITMQ_QUEUE_BIND_ROUTING_KEY_NEW])
+		message_broker.add_publisher(RABBITMQ_EXCHANGE,
+															 RABBITMQ_EXCHANGE_TYPE,
+															 RABBITMQ_QUEUE_TO_PROVIDER,
+															 [RABBITMQ_QUEUE_BIND_ROUTING_KEY_TO_PROVIDER])
+		message_broker.add_publisher(RABBITMQ_EXCHANGE,
+													   RABBITMQ_EXCHANGE_TYPE,
+													   RABBITMQ_QUEUE_FINAL,
+													   [RABBITMQ_QUEUE_BIND_ROUTING_KEY_FILLED,
+														RABBITMQ_QUEUE_BIND_ROUTING_KEY_PARTIAL_FILLED,
+														RABBITMQ_QUEUE_BIND_ROUTING_KEY_REJECTED])
+
+		message_broker.add_consumer(message_broker_connection_manager, storage, RABBITMQ_QUEUE_NEW)
+		message_broker.add_consumer(message_broker_connection_manager, storage, RABBITMQ_QUEUE_TO_PROVIDER)
+		message_broker.add_consumer(message_broker_connection_manager, storage, RABBITMQ_QUEUE_FINAL)
+		message_broker.start_consumers()
 
 		db_query_constructor = OrderRecordDBQueryConstructor()
 		db_service = MySQLService(logger, db_connection_manager.connection)
 
 		metric = OrderGeneratorMetric()
 
-		file_read_seek_number = 0
+		generated_values = 0
+		chunks = MemoryAllocationManager.get_list()
 
 		for iterator in range(int(ceil(Config.order.number_of_orders_total / Config.order.number_of_orders_per_chunk))):
 			logger.info("Generating values.")
 			values = self.__generate(logger, generator, metric, metrics=metric.get_generation())
-
-			logger.info("Writing values.")
-			self.__write(logger, writer_file_service, values, metrics=metric.get_file_insertion())
+			generated_values += len(values)
+			chunks.append(len(values))
 
 			logger.info("Publishing values.")
-			self.__publish(logger, serializer, publisher, values, metrics=metric.get_message_broker_publishing())
-
-			logger.info("Reading values.")
-			values_from_file = self.__read_and_parse_from_file(logger, reader_file_service, file_read_seek_number, metrics=metric.get_file_reading_and_parsing())
-			file_read_seek_number += len(values_from_file)
-
-			logger.info("Writing values to database.")
-			self.__write_to_db(logger, values, db_query_constructor, db_service, metrics=metric.get_database_writing())
+			self.__publish(logger, serializer, message_broker.publishers, values, metrics=metric.get_message_broker_publishing())
 
 		logger.info("Generated {0} values.".format(generator.total_number_of_generated_values))
+		# waiting for queries to be written to db
+		while generated_values != storage.get_number_of_extracted():
+			if len(chunks) > 0 and storage.get_amount_stored() >= chunks[0]:
+				values = storage.get(chunks[0])
+				# error handling later(dont delete if wasnt written)
+				# write to db will return boolean
+				self.__write_to_db(logger, serializer, values, db_query_constructor, db_service, metrics=metric.get_database_writing())
+				storage.delete(chunks[0])
+				del chunks[:1]
+			else:
+				break
 
 		return metric
 
@@ -130,40 +142,24 @@ class Launcher:
 		return values
 
 	@timeit
-	def __write(self, logger, writer_file_service, values):
-		written_values_number = 0
-		for value in values:
-			writer_file_service.write(str(value))
-			written_values_number += 1
-		logger.debug("Written {0} values.".format(written_values_number))
-
-	@timeit
-	def __publish(self, logger, serializer, publisher, values):
+	def __publish(self, logger, serializer, publishers, values):
 		published_values_number = 0
 		for value in values:
 			routing_key = value.status.lower().replace(" ", "_")
 			value = serializer.serialize(value)
-			publisher.publish(RABBITMQ_EXCHANGE, routing_key, value)
+			for publisher in publishers:
+				if routing_key in publisher.routing_keys:
+					publisher.publish(routing_key, value)
+					break
 			published_values_number += 1
 		logger.debug("Published {0} values.".format(published_values_number))
 
-	@timeit
-	def __read_and_parse_from_file(self, logger, reader_file_service, file_read_seek_number):
-		strings_from_file = reader_file_service.read(file_read_seek_number)
-		values_from_file = MemoryAllocationManager.get_list()
-		read_values_number = 0
-		for string in strings_from_file:
-			value = OrderRecordFromString.get_order_record(string)
-			values_from_file.append(value)
-			read_values_number += 1
-		logger.debug("Read {0} values.".format(read_values_number))
-
-		return values_from_file
 
 	@timeit
-	def __write_to_db(self, logger, values, db_query_constructor, db_service):
+	def __write_to_db(self, logger, serializer, values, db_query_constructor, db_service):
 		written_to_db_values_number = 0
 		for value in values:
+			value = serializer.deserialize(value)
 			query = db_query_constructor.construct(value)
 			db_service.execute(query, len(values))
 			written_to_db_values_number += 1
@@ -176,7 +172,7 @@ class Launcher:
 
 	def __finish(self, logger, message_broker_connection_manager, db_connection_manager):
 		logger.info("Closing message broker connection.")
-		message_broker_connection_manager.close_connection()
+		message_broker_connection_manager.close_all_connections()
 		logger.info("Closing database connection.")
 		db_connection_manager.close_connection()
 
@@ -189,7 +185,7 @@ class Launcher:
 
 		logger, message_broker_connection_manager, db_connection_manager = self.__initialize(program_start_time)
 		logger.info("Starting data generator execution.")
-		metric = self.__execute(logger, message_broker_connection_manager, db_connection_manager, program_start_time)
+		metric = self.__execute(logger, message_broker_connection_manager, db_connection_manager)
 		logger.info("Writing report.")
 		self.__report(logger, program_start_time, metric)
 		logger.info("Finishing data generator.")

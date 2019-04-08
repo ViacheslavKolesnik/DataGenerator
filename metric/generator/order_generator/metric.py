@@ -28,7 +28,7 @@ class OrderGeneratorMetric(GeneratorMetric):
 	def get_message_broker_publishing(self):
 		return self._message_broker_publishing
 
-	def get_file_reading_and_parsing(self):
+	def get_file_reading(self):
 		return self._file_reading
 
 	def get_database_writing(self):

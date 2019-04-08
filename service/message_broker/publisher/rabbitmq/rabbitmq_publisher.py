@@ -5,14 +5,16 @@ from service.message_broker.publisher.publisher import Publisher
 
 
 class RabbitMQPublisher(Publisher):
-	def __init__(self, logger, channel):
+	def __init__(self, logger, channel, exchange, routing_keys):
 		super(__class__, self).__init__(logger)
 
 		self.channel = channel
+		self.exchange = exchange
+		self.routing_keys = routing_keys
 
-	def publish(self, exchange, routing_key, message):
+	def publish(self, routing_key, message):
 		try:
-			self.channel.basic_publish(exchange=exchange,
+			self.channel.basic_publish(exchange=self.exchange,
 								  routing_key=routing_key,
 								  body=message)
 		except ChannelError:
