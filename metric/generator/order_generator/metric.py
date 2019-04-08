@@ -12,6 +12,8 @@ class OrderGeneratorMetric(GeneratorMetric):
 		self._message_broker_publishing = MemoryAllocationManager.get_list()
 		self._file_reading = MemoryAllocationManager.get_list()
 		self._database_writing = MemoryAllocationManager.get_list()
+		self._received_from_message_broker = 0
+		self._db_stats = None
 
 	def get_red_zone_order_generation(self):
 		return self._red_zone_order_generation
@@ -33,3 +35,15 @@ class OrderGeneratorMetric(GeneratorMetric):
 
 	def get_database_writing(self):
 		return self._database_writing
+
+	def get_received_from_message_broker(self):
+		return self._received_from_message_broker
+
+	def set_received_from_message_broker(self, number):
+		self._received_from_message_broker = number
+
+	def get_db_stats(self):
+		return self._db_stats
+
+	def set_db_stats(self, db_stats):
+		self._db_stats = db_stats

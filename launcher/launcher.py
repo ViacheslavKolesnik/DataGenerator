@@ -1,6 +1,7 @@
 from math import ceil
 from datetime import datetime
 
+from config.constant.database import ORDER_RECORD_STATISTICS_SELECT_QUERY
 from config.constant.file import *
 from config.constant.message_broker import *
 from config.constant.config import DEFAULT_CONFIG_FILES
@@ -70,10 +71,12 @@ class Launcher:
 													   database_name=Config.database.database_name)
 		db_connection_manager.open_connection()
 
-		return logger, message_broker_connection_manager, db_connection_manager
+		db_service = MySQLService(logger, db_connection_manager.connection)
+
+		return logger, message_broker_connection_manager, db_connection_manager, db_service
 
 	# main execution function
-	def __execute(self, logger, message_broker_connection_manager, db_connection_manager):
+	def __execute(self, logger, message_broker_connection_manager, db_connection_manager, db_service):
 		generator = OrderGenerator(logger)
 
 		serializer = OrderRecordSerializer()
@@ -103,7 +106,6 @@ class Launcher:
 		message_broker.start_consumers()
 
 		db_query_constructor = OrderRecordDBQueryConstructor()
-		db_service = MySQLService(logger, db_connection_manager.connection)
 
 		metric = OrderGeneratorMetric()
 
@@ -120,17 +122,21 @@ class Launcher:
 			self.__publish(logger, serializer, message_broker.publishers, values, metrics=metric.get_message_broker_publishing())
 
 		logger.info("Generated {0} values.".format(generator.total_number_of_generated_values))
-		# waiting for queries to be written to db
+
 		while generated_values != storage.get_number_of_extracted():
 			if len(chunks) > 0 and storage.get_amount_stored() >= chunks[0]:
 				values = storage.get(chunks[0])
-				# error handling later(dont delete if wasnt written)
-				# write to db will return boolean
-				self.__write_to_db(logger, serializer, values, db_query_constructor, db_service, metrics=metric.get_database_writing())
-				storage.delete(chunks[0])
-				del chunks[:1]
+				write_to_db_success = self.__write_to_db(logger, serializer, values, db_query_constructor, db_service, metrics=metric.get_database_writing())
+				if write_to_db_success:
+					storage.delete(chunks[0])
+					del chunks[:1]
+				else:
+					db_connection_manager.open_connection()
+					db_service.connection = db_connection_manager.connection
 			else:
 				break
+
+		metric.set_received_from_message_broker(storage.get_number_put())
 
 		return metric
 
@@ -161,12 +167,21 @@ class Launcher:
 		for value in values:
 			value = serializer.deserialize(value)
 			query = db_query_constructor.construct(value)
-			db_service.execute(query, len(values))
-			written_to_db_values_number += 1
+			query_execution_success = db_service.execute(query, len(values))
+			if query_execution_success:
+				written_to_db_values_number += 1
+			else:
+				return False
 		logger.debug("Written {0} values to db.".format(written_to_db_values_number))
+		return True
 
 	# reporting function
-	def __report(self, logger, program_start_time, metric):
+	def __report(self, logger, program_start_time, metric, db_service):
+		db_service.execute("SET sql_mode = '';", 1)
+		db_stats = db_service.execute_select(ORDER_RECORD_STATISTICS_SELECT_QUERY)[0]
+		print(db_stats)
+		metric.set_db_stats(db_stats)
+
 		reporter = ReporterProvider.get_reporter(Config.report.report_output, program_start_time, logger)
 		reporter.report(metric)
 
@@ -183,10 +198,10 @@ class Launcher:
 	def launch(self):
 		program_start_time = str(datetime.now()).replace(":", "-")
 
-		logger, message_broker_connection_manager, db_connection_manager = self.__initialize(program_start_time)
+		logger, message_broker_connection_manager, db_connection_manager, db_service = self.__initialize(program_start_time)
 		logger.info("Starting data generator execution.")
-		metric = self.__execute(logger, message_broker_connection_manager, db_connection_manager)
+		metric = self.__execute(logger, message_broker_connection_manager, db_connection_manager, db_service)
 		logger.info("Writing report.")
-		self.__report(logger, program_start_time, metric)
+		self.__report(logger, program_start_time, metric, db_service)
 		logger.info("Finishing data generator.")
 		self.__finish(logger, message_broker_connection_manager, db_connection_manager)

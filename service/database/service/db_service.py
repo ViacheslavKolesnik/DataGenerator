@@ -10,3 +10,7 @@ class DataBaseService(ABC):
 	@abstractmethod
 	def execute(self, *args):
 		pass
+
+	@abstractmethod
+	def execute_select(self, *args):
+		pass
