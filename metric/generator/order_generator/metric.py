@@ -2,6 +2,7 @@ from utils.allocation_manager.memory_allocation_manager import MemoryAllocationM
 from metric.generator.metric import GeneratorMetric
 
 
+# class for storing program metrics
 class OrderGeneratorMetric(GeneratorMetric):
 	def __init__(self):
 		super(OrderGeneratorMetric, self).__init__()

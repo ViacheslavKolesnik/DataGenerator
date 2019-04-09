@@ -11,6 +11,8 @@ class Serializer:
 	def serialize(self, *args):
 		pass
 
+	# deserializes data
+	# returns deserialized data
 	@abstractmethod
 	def deserialize(self, *args):
 		pass

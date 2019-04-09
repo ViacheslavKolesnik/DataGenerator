@@ -11,7 +11,7 @@ class MySQLService(DataBaseService):
 
 		self.uncommitted = 0
 
-	def execute(self, query, number_of_queries_required_to_commit):
+	def execute(self, query, number_of_queries_required_to_commit=1):
 		try:
 			with self.connection.cursor() as cursor:
 				cursor.execute(query)

@@ -35,7 +35,11 @@ class Launcher:
 	# initialize utils
 	# initialize memory allocation manager
 	# parse configurations
-	# initialize order_generator
+	# reset logger according to configurations
+	# initialize message broker connection manager
+	# initialize database connection manager
+	# establish database connection
+	# initialize database service
 	def __initialize(self, program_start_time):
 		logger = ConsoleLogger()
 		logger.info("Logger initialized. Initializing data order_generator.")
@@ -62,15 +66,17 @@ class Launcher:
 													   virtual_host=Config.message_broker.virtual_host,
 													   port=Config.message_broker.port)
 
-		logger.info("Establishing database connection.")
+		logger.info("Initializing database connection manager.")
 		db_connection_manager = MySQLConnectionManager(logger,
 													   user=Config.database.user,
 													   password=Config.database.password,
 													   host=Config.database.host,
 													   port=Config.database.port,
 													   database_name=Config.database.database_name)
+		logger.info("Establishing database connection.")
 		db_connection_manager.open_connection()
 
+		logger.info("Initializing database service.")
 		db_service = MySQLService(logger, db_connection_manager.connection)
 
 		return logger, message_broker_connection_manager, db_connection_manager, db_service

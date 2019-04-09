@@ -3,13 +3,9 @@ from datetime import datetime
 from logger.logger import Logger
 
 
-# logging class
-# log_file - file for writing log
-# log_file_permission - permission for log file
+# console logging class
 class ConsoleLogger(Logger):
 	# initialization method
-	# setting log file
-	# setting log file permission
 	def __init__(self):
 		super(ConsoleLogger, self).__init__()
 

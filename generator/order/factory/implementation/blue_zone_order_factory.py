@@ -15,7 +15,7 @@ class BlueZoneOrderFactory(OrderFactory):
 		super(BlueZoneOrderFactory, self).__init__(order_parameters_provider)
 
 	# make order with blue zone dependent parameters
-	# return Order
+	# return list of order records
 	def make_order(self):
 		order = super(BlueZoneOrderFactory, self).make_order()
 		order_records = MemoryAllocationManager.get_list()

@@ -8,9 +8,9 @@ from config.config import Config
 
 # class for serializing order records into strings
 class OrderRecordSerializer(Serializer):
-	# construct order records into strings
-	# accepts list of order records
-	# returns list of strings
+	# serialize order record into bytes
+	# accepts order record
+	# returns bytes
 	def serialize(self, order_record):
 		proto_order = ProtoOrder()
 		proto_order.identifier = order_record.order.identifier
@@ -32,9 +32,12 @@ class OrderRecordSerializer(Serializer):
 
 		return serialized_order_record
 
-	def deserialize(self, string):
+	# deserialize order record from byte array
+	# accepts byte array
+	# returns order record
+	def deserialize(self, order_record_bytes):
 		proto_order_record = ProtoOrderRecord()
-		proto_order_record.ParseFromString(string)
+		proto_order_record.ParseFromString(order_record_bytes)
 
 		order = Order()
 		order.identifier = proto_order_record.order.identifier

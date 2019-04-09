@@ -4,7 +4,11 @@ from logger.console.console_logger import ConsoleLogger
 from logger.file.file_logger import FileLogger
 
 
+# class for providing loggers
 class LoggerProvider:
+	# log_output - log output type
+	# program_start_time - the time program has started at
+	# return logger depending on log output type
 	@staticmethod
 	def get_logger(log_output=LOG_OUTPUT_CONSOLE, program_start_time=None):
 		if log_output == LOG_OUTPUT_FILE:

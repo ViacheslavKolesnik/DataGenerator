@@ -15,7 +15,7 @@ class RedZoneOrderFactory(OrderFactory):
 		super(RedZoneOrderFactory, self).__init__(order_parameters_provider)
 
 	# make order with red zone dependent parameters
-	# return Order
+	# return list of order records
 	def make_order(self):
 		order = super(RedZoneOrderFactory, self).make_order()
 		order_records = MemoryAllocationManager.get_list()

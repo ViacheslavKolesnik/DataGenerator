@@ -9,6 +9,7 @@
 # database - list of database related configuration parameters
 # message_broker - list of message broker related configuration parameters
 # log - list of log related configuration parameters
+# report - list of report related configuration parameters
 class Config:
 	order = None
 	date = None

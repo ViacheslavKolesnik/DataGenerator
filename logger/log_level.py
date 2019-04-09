@@ -1,6 +1,7 @@
 from enum import Enum
 
 
+# log levels enumeration
 class LogLevel(Enum):
 	TRACE = 0
 	DEBUG = 1

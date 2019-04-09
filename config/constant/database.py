@@ -11,10 +11,10 @@ join \
 ( \
 	select count(*) as red_zone_orders \
 	from \
-		(select order_id, count(order_id) as number_of_records FROM `order` group by order_id) as records_count \
+		(select order_id FROM `order` group by order_id) as distinct_order_ids \
 		left join \
-		(select order_id, status from `order` where status = 'New') as order_status \
-		on records_count.order_id = order_status.order_id  \
+		(select order_id from `order` where status = 'New') as order_status \
+		on distinct_order_ids.order_id = order_status.order_id  \
 	where order_status.order_id is null \
 ) as red_zone \
 join \
@@ -30,7 +30,7 @@ join \
 	from \
 		(select order_id, count(order_id) as number_of_records FROM `order` group by order_id) as records_count \
 		inner join \
-		(select order_id, status from `order` where status = 'New') as order_status \
+		(select order_id from `order` where status = 'New') as order_status \
 		on records_count.order_id = order_status.order_id \
 	where records_count.number_of_records = 2 \
 ) as blue_zone;"

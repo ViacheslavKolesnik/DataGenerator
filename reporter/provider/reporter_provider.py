@@ -7,7 +7,12 @@ from reporter.file.reporter import FileReporter
 from service.file_service.writer.writer_file_service import FileWriter
 
 
+# class for providing reporters
 class ReporterProvider:
+	# report_output - report output type
+	# program_start_time - the time program has started at
+	# logger - program logger
+	# return reporter depending on report output type
 	@staticmethod
 	def get_reporter(report_output=REPORT_OUTPUT_CONSOLE, program_start_time=None, logger=None):
 		if report_output == REPORT_OUTPUT_FILE:

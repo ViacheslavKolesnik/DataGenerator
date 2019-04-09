@@ -5,16 +5,20 @@ from config.config import Config
 from utils.utils import Utils
 
 
+# reporting class
 class Reporter(ABC):
+	# initialization function
 	@abstractmethod
 	def __init__(self):
 		pass
 
+	# main report function
 	@abstractmethod
 	def report(self, metric):
 		report = self.__construct_report(metric)
 		return report
 
+	# construct report from metrics
 	def __construct_report(self, metric):
 		report = "Startup configurations:\n" \
 				 "-Red zone orders: {0}.\n" \
@@ -48,6 +52,8 @@ class Reporter(ABC):
 
 		return report
 
+	# construct operation report
+	# this is used if time metrics for operation were counted
 	def __construct_operation_report(self, operation, metrics):
 		report = "-{0} time:\n" \
 				 "--Max: {1} ms\n" \

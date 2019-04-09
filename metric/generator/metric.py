@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from utils.allocation_manager.memory_allocation_manager import MemoryAllocationManager
 
 
+# class for storing generator related metrics
 class GeneratorMetric(ABC):
 	@abstractmethod
 	def __init__(self):

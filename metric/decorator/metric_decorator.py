@@ -3,7 +3,10 @@ import time
 from config.constant.other import SECOND_TO_MICROSECOND_CONVERTING_COEF
 
 
+# annotation to count function execution time
 def timeit(method):
+	# metrics - list used to append calculated metrics
+	# counts function execution time using processor dependent time
 	def timed(*args, metrics):
 		start_time = time.perf_counter()
 		result = method(*args)

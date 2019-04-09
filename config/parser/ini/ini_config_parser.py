@@ -377,8 +377,8 @@ class INIConfigurationParser(ConfigurationParser):
 
 		return log_config
 
-	# parsing log related parameters
-	# return LogConfig object
+	# parsing report related parameters
+	# return ReportConfig object
 	def __parse_report_config(self, config_parser):
 		report = None
 		report_config = ReportConfig()
