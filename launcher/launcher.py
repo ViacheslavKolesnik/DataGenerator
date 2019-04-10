@@ -1,3 +1,5 @@
+import threading
+import time
 from math import ceil
 from datetime import datetime
 
@@ -25,6 +27,7 @@ from service.database.service.mysql.mysql_service import MySQLService
 from metric.generator.order_generator.metric import OrderGeneratorMetric
 from metric.decorator.metric_decorator import timeit
 from service.storage.storage import Storage
+from service.background_worker.background_worker import BackgroundWorker
 
 
 # main program class
@@ -58,6 +61,9 @@ class Launcher:
 		logger.info("Setting log level.")
 		logger.set_log_level(Config.log.log_level)
 
+		logger.info("Initializing storage for consumed messages.")
+		storage = Storage()
+
 		logger.info("Initializing message broker connection manager.")
 		message_broker_connection_manager = RabbitMQConnectionManager(logger,
 													   user=Config.message_broker.user,
@@ -66,31 +72,11 @@ class Launcher:
 													   virtual_host=Config.message_broker.virtual_host,
 													   port=Config.message_broker.port)
 
-		logger.info("Initializing database connection manager.")
-		db_connection_manager = MySQLConnectionManager(logger,
-													   user=Config.database.user,
-													   password=Config.database.password,
-													   host=Config.database.host,
-													   port=Config.database.port,
-													   database_name=Config.database.database_name)
-		logger.info("Establishing database connection.")
-		db_connection_manager.open_connection()
-
-		logger.info("Initializing database service.")
-		db_service = MySQLService(logger, db_connection_manager.connection)
-
-		return logger, message_broker_connection_manager, db_connection_manager, db_service
-
-	# main execution function
-	def __execute(self, logger, message_broker_connection_manager, db_connection_manager, db_service):
-		generator = OrderGenerator(logger)
-
-		serializer = OrderRecordSerializer()
-
-		storage = Storage()
-
+		logger.info("Opening message broker connection.")
 		message_broker_general_connection = message_broker_connection_manager.open_connection()
+		logger.info("Initializing message broker.")
 		message_broker = RabbitMQ(logger, message_broker_general_connection)
+		logger.info("Adding message broker publishers.")
 		message_broker.add_publisher(RABBITMQ_EXCHANGE,
 													 RABBITMQ_EXCHANGE_TYPE,
 													 RABBITMQ_QUEUE_NEW,
@@ -105,15 +91,49 @@ class Launcher:
 													   [RABBITMQ_QUEUE_BIND_ROUTING_KEY_FILLED,
 														RABBITMQ_QUEUE_BIND_ROUTING_KEY_PARTIAL_FILLED,
 														RABBITMQ_QUEUE_BIND_ROUTING_KEY_REJECTED])
-
+		logger.info("Adding message broker consumers.")
 		message_broker.add_consumer(message_broker_connection_manager, storage, RABBITMQ_QUEUE_NEW)
 		message_broker.add_consumer(message_broker_connection_manager, storage, RABBITMQ_QUEUE_TO_PROVIDER)
 		message_broker.add_consumer(message_broker_connection_manager, storage, RABBITMQ_QUEUE_FINAL)
+		logger.info("Starting consumers.")
 		message_broker.start_consumers()
 
-		db_query_constructor = OrderRecordDBQueryConstructor()
+		logger.info("Initializing database connection manager.")
+		db_connection_manager = MySQLConnectionManager(logger,
+													   user=Config.database.user,
+													   password=Config.database.password,
+													   host=Config.database.host,
+													   port=Config.database.port,
+													   database_name=Config.database.database_name)
+		logger.info("Establishing database connection.")
+		db_connection = db_connection_manager.open_connection()
 
+		logger.info("Initializing database service.")
+		db_service = MySQLService(logger, db_connection)
+		db_service.execute("SET sql_mode = '';", 1)
+
+		logger.info("Initializing reporter.")
+		reporter = ReporterProvider.get_reporter(Config.report.report_output, program_start_time, logger)
+
+		logger.info("Initializing metrics.")
 		metric = OrderGeneratorMetric()
+
+		reporter_db_connection = db_connection_manager.open_connection()
+		reporter_db_service = MySQLService(logger, reporter_db_connection)
+		reporter_db_service.execute("SET sql_mode = '';", 1)
+		logger.info("Starting background reporting every {0} seconds".format(Config.report.report_frequency))
+		background_reporter = BackgroundWorker(self.__report, Config.report.report_frequency, (reporter, metric, reporter_db_service))
+		background_reporter.start()
+
+		return logger, reporter, background_reporter, metric, message_broker_connection_manager, message_broker, storage, db_connection_manager, db_service
+
+	# main execution function
+	def __execute(self, logger, metric, message_broker, storage, db_connection_manager, db_service):
+		generator = OrderGenerator(logger)
+
+		serializer = OrderRecordSerializer()
+
+		db_query_constructor = OrderRecordDBQueryConstructor()
 
 		generated_values = 0
 		chunks = MemoryAllocationManager.get_list()
@@ -182,20 +202,20 @@ class Launcher:
 		return True
 
 	# reporting function
-	def __report(self, logger, program_start_time, metric, db_service):
-		db_service.execute("SET sql_mode = '';", 1)
-		db_stats = db_service.execute_select(ORDER_RECORD_STATISTICS_SELECT_QUERY)[0]
-		print(db_stats)
+	def __report(self, reporter, metric, db_service):
+		db_stats = db_service.execute_select(ORDER_RECORD_STATISTICS_SELECT_QUERY)
+		db_stats = db_stats[0]
 		metric.set_db_stats(db_stats)
 
-		reporter = ReporterProvider.get_reporter(Config.report.report_output, program_start_time, logger)
 		reporter.report(metric)
 
-	def __finish(self, logger, message_broker_connection_manager, db_connection_manager):
+	def __finish(self, logger, message_broker_connection_manager, db_connection_manager, background_reporter):
+		logger.info("Stopping background reporter.")
+		background_reporter.stop()
 		logger.info("Closing message broker connection.")
 		message_broker_connection_manager.close_all_connections()
 		logger.info("Closing database connection.")
-		db_connection_manager.close_connection()
+		db_connection_manager.close_all_connections()
 
 	# main function of Data Generator
 	# starting program execution
@@ -204,10 +224,19 @@ class Launcher:
 	def launch(self):
 		program_start_time = str(datetime.now()).replace(":", "-")
 
-		logger, message_broker_connection_manager, db_connection_manager, db_service = self.__initialize(program_start_time)
+		logger,\
+		reporter, \
+		background_reporter,\
+		metric,\
+		message_broker_connection_manager,\
+		message_broker,\
+		storage,\
+		db_connection_manager,\
+		db_service = self.__initialize(program_start_time)
+
 		logger.info("Starting data generator execution.")
-		metric = self.__execute(logger, message_broker_connection_manager, db_connection_manager, db_service)
+		metric = self.__execute(logger, metric, message_broker, storage, db_connection_manager, db_service)
 		logger.info("Writing report.")
-		self.__report(logger, program_start_time, metric, db_service)
+		self.__report(reporter, metric, db_service)
 		logger.info("Finishing data generator.")
-		self.__finish(logger, message_broker_connection_manager, db_connection_manager)
+		self.__finish(logger, message_broker_connection_manager, db_connection_manager, background_reporter)

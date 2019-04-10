@@ -397,4 +397,10 @@ class INIConfigurationParser(ConfigurationParser):
 			self.number_of_errors_in_configurations += 1
 			self.logger.error("Invalid logger type. Should be '{0}' or '{1}'".format(REPORT_OUTPUT_CONSOLE, REPORT_OUTPUT_FILE))
 
+		if not report['report_frequency'].isdigit():
+			self.number_of_errors_in_configurations += 1
+			self.logger.error("Report frequency must be not negative integer.")
+		else:
+			report_config.report_frequency = int(report['report_frequency'])
+
 		return report_config

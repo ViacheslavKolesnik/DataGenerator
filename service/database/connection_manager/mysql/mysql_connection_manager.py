@@ -5,40 +5,50 @@ from config.constant.exit_code import *
 from config.constant.other import RECONNECT_TIMEOUT, NUMBER_OF_RECONNECTS
 
 from service.database.connection_manager.connection_manager import ConnectionManager
-from config.config import Config
+from utils.allocation_manager.memory_allocation_manager import MemoryAllocationManager
 
 
 class MySQLConnectionManager(ConnectionManager):
 	def __init__(self, logger, user, password, host, port, database_name):
 		super(__class__, self).__init__(logger, user, password, host, port, database_name)
+		self.connections = MemoryAllocationManager.get_list()
 
 	def open_connection(self):
 		self.logger.info("Trying to establish database connection.")
-
+		connection = None
 		try:
-			self._open_connection()
+			connection = self._open_connection()
 		except MySQLError:
 			self.logger.warn("Error connecting to database. Reconnecting.")
-			self._reconnect()
+			connection = self._reconnect()
 			self.logger.info("Successfully reconnected to database.")
 
+		return connection
+
 	def _open_connection(self):
-		self.connection = connect(host=self.host, port=self.port, user=self.user, password=self.password, database=self.database_name)
+		connection = connect(host=self.host, port=self.port, user=self.user, password=self.password, database=self.database_name)
+		self.connections.append(connection)
 		self.logger.info("Database connection successfully established.")
 
-	def close_connection(self):
+		return connection
+
+	def close_all_connections(self):
+		for connection in self.connections:
+			self.close_connection(connection)
+
+	def close_connection(self, connection):
 		try:
-			self.connection.close()
+			connection.close()
 			self.logger.info("Database connection successfully closed.")
 		except MySQLError:
 			self.logger.error("Error closing database connection.")
-			exit(EXIT_CODE_DATABASE_CONNECTION_FAILED)
 
 	def _reconnect(self):
 		for iterator in range(NUMBER_OF_RECONNECTS):
 			try:
-				self._open_connection()
-				return
+				connection = self._open_connection()
+				if connection:
+					return connection
 			except:
 				self.logger.warn("Reconnect failed.")
 				if iterator < NUMBER_OF_RECONNECTS - 1:

@@ -75,7 +75,7 @@ class RabbitMQConnectionManager(ConnectionManager):
 			channel = self.__get_channel(connection)
 		except ConnectionClosed as e:
 			self.logger.warn("Unable to get channel. Connection to RabbitMQ closed. Reconnecting.")
-			self._reconnect()
+			connection = self._reconnect()
 			self.logger.info("Successfully reconnected to RabbitMQ.")
 			channel = self.__get_channel(connection)
 
