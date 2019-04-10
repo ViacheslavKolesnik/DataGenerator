@@ -34,6 +34,10 @@ class RabbitMQ(MessageBroker):
 		for consumer in self.consumers:
 			consumer.start()
 
+	def stop_consumers(self):
+		for consumer in self.consumers:
+			consumer.stop()
+
 	def __setup_publisher(self, channel, exchange, exchange_type, queue, routing_keys):
 		self.__exchange_declare(channel,
 								exchange=exchange,

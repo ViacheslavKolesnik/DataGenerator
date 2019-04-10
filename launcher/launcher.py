@@ -209,11 +209,13 @@ class Launcher:
 
 		reporter.report(metric)
 
-	def __finish(self, logger, message_broker_connection_manager, db_connection_manager, background_reporter):
+	def __finish(self, logger, message_broker, message_broker_connection_manager, db_connection_manager, background_reporter):
 		logger.info("Stopping background reporter.")
 		background_reporter.stop()
+		logger.info("Stopping consumers.")
+		message_broker.stop_consumers()
 		logger.info("Closing message broker connection.")
-		message_broker_connection_manager.close_all_connections()
+		message_broker_connection_manager.close_connection(message_broker.connection)
 		logger.info("Closing database connection.")
 		db_connection_manager.close_all_connections()
 
@@ -239,4 +241,4 @@ class Launcher:
 		logger.info("Writing report.")
 		self.__report(reporter, metric, db_service)
 		logger.info("Finishing data generator.")
-		self.__finish(logger, message_broker_connection_manager, db_connection_manager, background_reporter)
+		self.__finish(logger, message_broker, message_broker_connection_manager, db_connection_manager, background_reporter)
