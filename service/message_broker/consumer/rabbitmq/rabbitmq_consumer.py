@@ -36,6 +36,8 @@ class RabbitMQConsumer(Consumer, Thread):
 				if not message:
 					continue
 				method, properties, body = message
+				if not body:
+					continue
 				self._on_consume(body)
 			self.connection_manager.close_channel(channel)
 			self.connection_manager.close_connection(connection)
