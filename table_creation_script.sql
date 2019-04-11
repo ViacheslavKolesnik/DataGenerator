@@ -1,12 +1,10 @@
 CREATE DATABASE IF NOT EXISTS `simcord`;
-
 USE `simcord`;
-
 DROP TABLE IF EXISTS `order`;
 
 CREATE TABLE `order` (
-  `id` BIGINT NOT NULL auto_increment,
-  `order_id` decimal(20,0) NOT NULL,
+  `id` bigint(20) NOT NULL,
+  `order_id` varchar(20) NOT NULL,
   `cur_pair` varchar(12) NOT NULL,
   `direction` varchar(5) NOT NULL,
   `status` varchar(15) NOT NULL,
@@ -17,5 +15,5 @@ CREATE TABLE `order` (
   `fill_vol` decimal(20,8) NOT NULL,
   `description` varchar(45) NOT NULL,
   `tag` varchar(12) NOT NULL,
-  primary key (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
