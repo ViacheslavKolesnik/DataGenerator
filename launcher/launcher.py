@@ -3,7 +3,7 @@ import time
 from math import ceil
 from datetime import datetime
 
-from config.constant.database import ORDER_RECORD_STATISTICS_SELECT_QUERY
+from config.constant.database import ORDER_RECORD_STATISTICS_SELECT_QUERY, DISABLE_SQL_MODE_ONLY_FULL_GROUP_BY
 from config.constant.file import *
 from config.constant.message_broker import *
 from config.constant.config import DEFAULT_CONFIG_FILES
@@ -110,7 +110,6 @@ class Launcher:
 
 		logger.info("Initializing database service.")
 		db_service = MySQLService(logger, db_connection)
-		db_service.execute("SET sql_mode = '';", 1)
 
 		logger.info("Initializing reporter.")
 		reporter = ReporterProvider.get_reporter(Config.report.report_output, program_start_time, logger)
@@ -120,7 +119,7 @@ class Launcher:
 
 		reporter_db_connection = db_connection_manager.open_connection()
 		reporter_db_service = MySQLService(logger, reporter_db_connection)
-		reporter_db_service.execute("SET sql_mode = '';", 1)
+		reporter_db_service.execute(DISABLE_SQL_MODE_ONLY_FULL_GROUP_BY, 1)
 		logger.info("Starting background reporting every {0} seconds".format(Config.report.report_frequency))
 		background_reporter = BackgroundWorker(self.__report, Config.report.report_frequency, (reporter, metric, reporter_db_service))
 		background_reporter.start()
