@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 
-class ConnectionManager(ABC):
+class DataBaseService(ABC):
 	@abstractmethod
 	def __init__(self, logger, user, password, host, port, database_name):
 		self.logger = logger
@@ -13,13 +13,21 @@ class ConnectionManager(ABC):
 		self.database_name = database_name
 
 	@abstractmethod
-	def open_connection(self):
+	def open_connection(self, *args, **kwargs):
 		pass
 
 	@abstractmethod
-	def close_connection(self, connection):
+	def close_connection(self, *args, **kwargs):
 		pass
 
 	@abstractmethod
-	def _reconnect(self):
+	def _reconnect(self, *args, **kwargs):
+		pass
+
+	@abstractmethod
+	def execute(self, *args, **kwargs):
+		pass
+
+	@abstractmethod
+	def execute_select(self, *args, **kwargs):
 		pass

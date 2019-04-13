@@ -1,10 +1,7 @@
-import threading
-import time
 from math import ceil
 from datetime import datetime
 
 from config.constant.database import ORDER_RECORD_STATISTICS_SELECT_QUERY
-from config.constant.file import *
 from config.constant.message_broker import *
 from config.constant.config import DEFAULT_CONFIG_FILES
 
@@ -13,21 +10,18 @@ from logger.provider.logger_provider import LoggerProvider
 from config.parser.ini.ini_config_parser import INIConfigurationParser
 from config.config import Config
 from reporter.provider.reporter_provider import ReporterProvider
+from service.background_worker.mysql_worker.mysql_worker import MySQLBackgroundWorker
 from service.message_broker.rabbitmq.broker import RabbitMQ
 from utils.utils import Utils
 from utils.allocation_manager.memory_allocation_manager import MemoryAllocationManager
 from generator.order.order_generator import OrderGenerator
-from service.file_service.writer.csv_writer import CSVFileWriter
-from service.file_service.reader.csv_reader import CSVFileReader
 from serializer.order_record.serializer import OrderRecordSerializer
 from service.message_broker.connection_manager.rabbitmq.rabbitmq_connection_manager import RabbitMQConnectionManager
 from service.database.query_constructor.order_record.query_constructor import OrderRecordDBQueryConstructor
-from service.database.connection_manager.mysql.mysql_connection_manager import MySQLConnectionManager
-from service.database.service.mysql.mysql_service import MySQLService
+from service.database.mysql.mysql_service import MySQLService
 from metric.generator.order_generator.metric import OrderGeneratorMetric
 from metric.decorator.metric_decorator import timeit
 from service.storage.storage import Storage
-from service.background_worker.background_worker import BackgroundWorker
 
 
 # main program class
@@ -98,18 +92,15 @@ class Launcher:
 		logger.info("Starting consumers.")
 		message_broker.start_consumers()
 
-		logger.info("Initializing database connection manager.")
-		db_connection_manager = MySQLConnectionManager(logger,
-													   user=Config.database.user,
-													   password=Config.database.password,
-													   host=Config.database.host,
-													   port=Config.database.port,
-													   database_name=Config.database.database_name)
-		logger.info("Establishing database connection.")
-		db_connection = db_connection_manager.open_connection()
-
 		logger.info("Initializing database service.")
-		db_service = MySQLService(logger, db_connection)
+		db_service = MySQLService(logger,
+								  user=Config.database.user,
+								  password=Config.database.password,
+								  host=Config.database.host,
+								  port=Config.database.port,
+								  database_name=Config.database.database_name)
+		logger.info("Establishing database connection.")
+		db_service.open_connection()
 
 		logger.info("Initializing reporter.")
 		reporter = ReporterProvider.get_reporter(Config.report.report_output, program_start_time, logger)
@@ -117,16 +108,14 @@ class Launcher:
 		logger.info("Initializing metrics.")
 		metric = OrderGeneratorMetric()
 
-		reporter_db_connection = db_connection_manager.open_connection()
-		reporter_db_service = MySQLService(logger, reporter_db_connection)
 		logger.info("Starting background reporting every {0} seconds".format(Config.report.report_frequency))
-		background_reporter = BackgroundWorker(self.__report, Config.report.report_frequency, (reporter, metric, reporter_db_service))
+		background_reporter = MySQLBackgroundWorker(Config.report.report_frequency, self.__report, (logger, reporter, metric, db_service), db_service)
 		background_reporter.start()
 
-		return logger, reporter, background_reporter, metric, message_broker_connection_manager, message_broker, storage, db_connection_manager, db_service
+		return logger, reporter, background_reporter, metric, message_broker_connection_manager, message_broker, storage, db_service
 
 	# main execution function
-	def __execute(self, logger, metric, message_broker, storage, db_connection_manager, db_service):
+	def __execute(self, logger, metric, message_broker, storage, db_service):
 		generator = OrderGenerator(logger)
 
 		serializer = OrderRecordSerializer()
@@ -154,9 +143,6 @@ class Launcher:
 				if write_to_db_success:
 					storage.delete(chunks[0])
 					del chunks[:1]
-				else:
-					db_connection_manager.open_connection()
-					db_service.connection = db_connection_manager.connection
 			else:
 				break
 
@@ -200,22 +186,27 @@ class Launcher:
 		return True
 
 	# reporting function
-	def __report(self, reporter, metric, db_service):
+	def __report(self, logger, reporter, metric, db_service):
 		db_stats = db_service.execute_select(ORDER_RECORD_STATISTICS_SELECT_QUERY)
+		if not db_stats:
+			logger.warn("Unable to write report, data from database is not available.")
+			return
 		db_stats = db_stats[0]
 		metric.set_db_stats(db_stats)
 
 		reporter.report(metric)
 
-	def __finish(self, logger, message_broker, message_broker_connection_manager, db_connection_manager, background_reporter):
+	def __finish(self, logger, message_broker, message_broker_connection_manager, db_service, background_reporter):
 		logger.info("Stopping background reporter.")
 		background_reporter.stop()
+		logger.info("Waiting for background reporter to stop.")
+		background_reporter.join()
 		logger.info("Stopping consumers.")
 		message_broker.stop_consumers()
 		logger.info("Closing message broker connection.")
 		message_broker_connection_manager.close_connection(message_broker.connection)
 		logger.info("Closing database connection.")
-		db_connection_manager.close_all_connections()
+		db_service.close_connection()
 
 	# main function of Data Generator
 	# starting program execution
@@ -231,12 +222,11 @@ class Launcher:
 		message_broker_connection_manager,\
 		message_broker,\
 		storage,\
-		db_connection_manager,\
 		db_service = self.__initialize(program_start_time)
 
 		logger.info("Starting data generator execution.")
-		metric = self.__execute(logger, metric, message_broker, storage, db_connection_manager, db_service)
+		metric = self.__execute(logger, metric, message_broker, storage, db_service)
 		logger.info("Writing report.")
-		self.__report(reporter, metric, db_service)
+		self.__report(logger, reporter, metric, db_service)
 		logger.info("Finishing data generator.")
-		self.__finish(logger, message_broker, message_broker_connection_manager, db_connection_manager, background_reporter)
+		self.__finish(logger, message_broker, message_broker_connection_manager, db_service, background_reporter)

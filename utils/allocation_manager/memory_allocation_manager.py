@@ -26,9 +26,9 @@ class MemoryAllocationManager:
 	# creates dictionary
 	# handles MemoryError while dictionary creation
 	@classmethod
-	def get_dict(cls, argument):
+	def get_dict(cls):
 		try:
-			return dict(argument)
+			return dict()
 		except MemoryError:
 			cls.logger.fatal("Function {0}: Error creating list. Not enough memory.".format(inspect.getouterframes(inspect.currentframe())[1].function))
 			exit(EXIT_CODE_NOT_ENOUGH_MEMORY)
