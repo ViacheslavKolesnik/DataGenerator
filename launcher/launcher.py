@@ -1,16 +1,19 @@
 from math import ceil
 from datetime import datetime
+import time
 
 from config.constant.database import ORDER_RECORD_STATISTICS_SELECT_QUERY, ORDER_RECORD_INSERT_PATTERN
 from config.constant.message_broker import *
 from config.constant.config import DEFAULT_CONFIG_FILES
+from config.constant.other import STORAGE_TO_DB_WRITER_CYCLE_WORK_TIME
 
 from logger.console.console_logger import ConsoleLogger
 from logger.provider.logger_provider import LoggerProvider
 from config.parser.ini.ini_config_parser import INIConfigurationParser
 from config.config import Config
 from reporter.provider.reporter_provider import ReporterProvider
-from service.background_worker.mysql_worker.mysql_worker import MySQLBackgroundWorker
+from service.background_worker.mysql.mysql_periodic_worker import MySQLPeriodicBackgroundWorker
+from service.background_worker.mysql.mysql_worker import MySQLBackgroundWorker
 from service.message_broker.rabbitmq.broker import RabbitMQ
 from utils.utils import Utils
 from utils.allocation_manager.memory_allocation_manager import MemoryAllocationManager
@@ -38,7 +41,7 @@ class Launcher:
 	# initialize database service
 	def __initialize(self, program_start_time):
 		logger = ConsoleLogger()
-		logger.info("Logger initialized. Initializing data order_generator.")
+		logger.info("Logger initialized. Initializing data generator.")
 
 		logger.info("Initializing utils.")
 		Utils.initialize(logger)
@@ -106,46 +109,50 @@ class Launcher:
 		metric = OrderGeneratorMetric()
 
 		logger.info("Starting background reporting every {0} seconds".format(Config.report.report_frequency))
-		background_reporter = MySQLBackgroundWorker(Config.report.report_frequency, self.__report, (logger, reporter, metric, db_service), db_service)
+		background_reporter = MySQLPeriodicBackgroundWorker(self.__report, (logger, reporter, metric, db_service, storage), db_service, Config.report.report_frequency)
 		background_reporter.start()
 
-		return logger, reporter, background_reporter, metric, message_broker, storage, db_service
+		logger.info("Starting background database writer")
+		db_query_constructor = OrderRecordDBQueryConstructor()
+		serializer = OrderRecordSerializer()
+		background_db_writer = MySQLBackgroundWorker(self.__storage_to_db_writer, (storage, logger, serializer, db_query_constructor, db_service, metric), db_service)
+		background_db_writer.start()
+
+		return logger, reporter, background_reporter, background_db_writer, metric, message_broker, storage, db_service, serializer
 
 	# main execution function
-	def __execute(self, logger, metric, message_broker, storage, db_service):
+	def __execute(self, logger, metric, message_broker, serializer):
 		generator = OrderGenerator(logger)
 
-		serializer = OrderRecordSerializer()
-
-		db_query_constructor = OrderRecordDBQueryConstructor()
-
 		generated_values = 0
-		chunks = MemoryAllocationManager.get_list()
 
 		for iterator in range(int(ceil(Config.order.number_of_orders_total / Config.order.number_of_orders_per_chunk))):
 			logger.info("Generating values.")
 			values = self.__generate(logger, generator, metric, metrics=metric.get_generation())
 			generated_values += len(values)
-			chunks.append(len(values))
 
 			logger.info("Publishing values.")
 			self.__publish(logger, serializer, message_broker.publishers, values, metrics=metric.get_message_broker_publishing())
 
 		logger.info("Generated {0} values.".format(generator.total_number_of_generated_values))
 
-		while generated_values != storage.get_number_of_extracted():
-			if len(chunks) > 0 and storage.get_amount_stored() >= chunks[0]:
-				values = storage.get(chunks[0])
-				write_to_db_success = self.__write_to_db(logger, serializer, values, db_query_constructor, db_service, metrics=metric.get_database_writing())
-				if write_to_db_success:
-					storage.delete(chunks[0])
-					del chunks[:1]
-			else:
-				break
-
-		metric.set_received_from_message_broker(storage.get_number_put())
-
 		return metric
+
+	def __storage_to_db_writer(self, storage, logger, serializer, db_query_constructor, db_service, metric):
+		while True:
+			number_of_stored_values = storage.get_amount_stored()
+			number_of_extracted_from_storage_values = storage.get_number_of_extracted()
+			if number_of_stored_values == 0 and number_of_extracted_from_storage_values > 0:
+				break
+			elif number_of_stored_values > 0:
+				values = storage.get(number_of_stored_values)
+				write_to_db_success = self.__write_to_db(logger, serializer, values, db_query_constructor, db_service, metrics=metric.get_database_writing())
+
+				if write_to_db_success:
+					storage.delete(number_of_stored_values)
+
+			time.sleep(STORAGE_TO_DB_WRITER_CYCLE_WORK_TIME)
+
 
 	@timeit
 	def __generate(self, logger, generator, metric):
@@ -182,8 +189,17 @@ class Launcher:
 		logger.debug("Written {0} values to db.".format(written_to_db_values_number))
 		return True
 
+	def __prepare_for_final_report(self, logger, background_reporter, background_db_writer):
+		logger.info("Stopping background reporter.")
+		background_reporter.stop()
+		logger.info("Waiting for background reporter to stop.")
+		background_reporter.join()
+		logger.info("Waiting for background database writer to stop.")
+		background_db_writer.join()
+
 	# reporting function
-	def __report(self, logger, reporter, metric, db_service):
+	def __report(self, logger, reporter, metric, db_service, storage):
+		metric.set_received_from_message_broker(storage.get_number_put())
 		db_stats = db_service.execute_select(ORDER_RECORD_STATISTICS_SELECT_QUERY)
 		if not db_stats:
 			logger.warn("Unable to write report, data from database is not available.")
@@ -193,11 +209,7 @@ class Launcher:
 
 		reporter.report(metric)
 
-	def __finish(self, logger, message_broker, db_service, background_reporter):
-		logger.info("Stopping background reporter.")
-		background_reporter.stop()
-		logger.info("Waiting for background reporter to stop.")
-		background_reporter.join()
+	def __finish(self, logger, message_broker, db_service):
 		logger.info("Closing database connection.")
 		db_service.close_connection()
 		logger.info("Stopping consumers.")
@@ -216,16 +228,20 @@ class Launcher:
 		program_start_time = str(datetime.now()).replace(":", "-")
 
 		logger,\
-		reporter, \
+		reporter,\
 		background_reporter,\
+		background_db_writer,\
 		metric,\
 		message_broker,\
 		storage,\
-		db_service = self.__initialize(program_start_time)
+		db_service,\
+		serializer = self.__initialize(program_start_time)
 
 		logger.info("Starting data generator execution.")
-		metric = self.__execute(logger, metric, message_broker, storage, db_service)
-		logger.info("Writing report.")
-		self.__report(logger, reporter, metric, db_service)
+		metric = self.__execute(logger, metric, message_broker, serializer)
+		logger.info("Preparing for final report.")
+		self.__prepare_for_final_report(logger, background_reporter, background_db_writer)
+		logger.info("Writing final report.")
+		self.__report(logger, reporter, metric, db_service, storage)
 		logger.info("Finishing data generator.")
-		self.__finish(logger, message_broker, db_service, background_reporter)
+		self.__finish(logger, message_broker, db_service)
