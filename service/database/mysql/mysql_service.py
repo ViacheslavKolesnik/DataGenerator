@@ -30,8 +30,12 @@ class MySQLService(DataBaseService):
 	# opens connection for current thread
 	# append it to connections dictionary using current thread name as tag
 	def _open_connection(self):
-		connection = pymysql.connect(host=self.host, port=self.port, user=self.user, password=self.password, database=self.database_name)
 		connection_id = current_thread().name
+		if connection_id in self.connections:
+			if self.connections[connection_id].open:
+				self.logger.warn("Not opening database connection. It exists and already opened")
+				return
+		connection = pymysql.connect(host=self.host, port=self.port, user=self.user, password=self.password, database=self.database_name)
 		self.connections[connection_id] = connection
 
 	def close_connection(self):
@@ -64,10 +68,9 @@ class MySQLService(DataBaseService):
 		try:
 			connection = self.connections[connection_id]
 		except KeyError:
-			self.logger.fatal("Connection for doesn't thread {} doesn't exist.".format(connection_id))
+			self.logger.fatal("Connection for thread {} doesn't exist.".format(connection_id))
 			exit(EXIT_CODE_MYSQL_CONNECTION_DOES_NOT_EXIST)
 		return connection
-
 
 	def execute(self, query, number_of_queries_required_to_commit=1):
 		connection = self._get_current_connection()
@@ -95,7 +98,6 @@ class MySQLService(DataBaseService):
 			self._reconnect()
 			self.logger.info("Successfully reconnected to database.")
 			return False
-
 
 	def execute_select(self, query):
 		connection = self._get_current_connection()

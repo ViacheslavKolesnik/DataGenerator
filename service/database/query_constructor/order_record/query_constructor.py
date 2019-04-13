@@ -11,8 +11,8 @@ class OrderRecordDBQueryConstructor(DBQueryConstructor):
 	# construct order records into strings
 	# accepts list of order records
 	# returns list of strings
-	def construct(self, order_record):
-		order_record_db_query = ORDER_RECORD_INSERT_PATTERN.format(
+	def construct(self, pattern, order_record):
+		order_record_db_query = pattern.format(
 			self.counter,
 			order_record.order.identifier,
 			order_record.order.currency_pair,

@@ -1,7 +1,7 @@
 from math import ceil
 from datetime import datetime
 
-from config.constant.database import ORDER_RECORD_STATISTICS_SELECT_QUERY
+from config.constant.database import ORDER_RECORD_STATISTICS_SELECT_QUERY, ORDER_RECORD_INSERT_PATTERN
 from config.constant.message_broker import *
 from config.constant.config import DEFAULT_CONFIG_FILES
 
@@ -16,7 +16,6 @@ from utils.utils import Utils
 from utils.allocation_manager.memory_allocation_manager import MemoryAllocationManager
 from generator.order.order_generator import OrderGenerator
 from serializer.order_record.serializer import OrderRecordSerializer
-from service.message_broker.connection_manager.rabbitmq.rabbitmq_connection_manager import RabbitMQConnectionManager
 from service.database.query_constructor.order_record.query_constructor import OrderRecordDBQueryConstructor
 from service.database.mysql.mysql_service import MySQLService
 from metric.generator.order_generator.metric import OrderGeneratorMetric
@@ -58,37 +57,35 @@ class Launcher:
 		logger.info("Initializing storage for consumed messages.")
 		storage = Storage()
 
-		logger.info("Initializing message broker connection manager.")
-		message_broker_connection_manager = RabbitMQConnectionManager(logger,
-													   user=Config.message_broker.user,
-													   password=Config.message_broker.password,
-													   host=Config.message_broker.host,
-													   virtual_host=Config.message_broker.virtual_host,
-													   port=Config.message_broker.port)
-
-		logger.info("Opening message broker connection.")
-		message_broker_general_connection = message_broker_connection_manager.open_connection()
 		logger.info("Initializing message broker.")
-		message_broker = RabbitMQ(logger, message_broker_general_connection)
+		message_broker = RabbitMQ(logger,
+								  user=Config.message_broker.user,
+								  password=Config.message_broker.password,
+								  host=Config.message_broker.host,
+								  virtual_host=Config.message_broker.virtual_host,
+								  port=Config.message_broker.port)
+		logger.info("Opening message broker connection.")
+		message_broker.open_connection()
+
 		logger.info("Adding message broker publishers.")
 		message_broker.add_publisher(RABBITMQ_EXCHANGE,
-													 RABBITMQ_EXCHANGE_TYPE,
-													 RABBITMQ_QUEUE_NEW,
-													 [RABBITMQ_QUEUE_BIND_ROUTING_KEY_NEW])
+									 RABBITMQ_EXCHANGE_TYPE,
+									 RABBITMQ_QUEUE_NEW,
+									 [RABBITMQ_QUEUE_BIND_ROUTING_KEY_NEW])
 		message_broker.add_publisher(RABBITMQ_EXCHANGE,
-															 RABBITMQ_EXCHANGE_TYPE,
-															 RABBITMQ_QUEUE_TO_PROVIDER,
-															 [RABBITMQ_QUEUE_BIND_ROUTING_KEY_TO_PROVIDER])
+									 RABBITMQ_EXCHANGE_TYPE,
+									 RABBITMQ_QUEUE_TO_PROVIDER,
+									 [RABBITMQ_QUEUE_BIND_ROUTING_KEY_TO_PROVIDER])
 		message_broker.add_publisher(RABBITMQ_EXCHANGE,
-													   RABBITMQ_EXCHANGE_TYPE,
-													   RABBITMQ_QUEUE_FINAL,
-													   [RABBITMQ_QUEUE_BIND_ROUTING_KEY_FILLED,
-														RABBITMQ_QUEUE_BIND_ROUTING_KEY_PARTIAL_FILLED,
-														RABBITMQ_QUEUE_BIND_ROUTING_KEY_REJECTED])
+									 RABBITMQ_EXCHANGE_TYPE,
+									 RABBITMQ_QUEUE_FINAL,
+									 [RABBITMQ_QUEUE_BIND_ROUTING_KEY_FILLED,
+									  RABBITMQ_QUEUE_BIND_ROUTING_KEY_PARTIAL_FILLED,
+									  RABBITMQ_QUEUE_BIND_ROUTING_KEY_REJECTED])
 		logger.info("Adding message broker consumers.")
-		message_broker.add_consumer(message_broker_connection_manager, storage, RABBITMQ_QUEUE_NEW)
-		message_broker.add_consumer(message_broker_connection_manager, storage, RABBITMQ_QUEUE_TO_PROVIDER)
-		message_broker.add_consumer(message_broker_connection_manager, storage, RABBITMQ_QUEUE_FINAL)
+		message_broker.add_consumer(storage, RABBITMQ_QUEUE_NEW)
+		message_broker.add_consumer(storage, RABBITMQ_QUEUE_TO_PROVIDER)
+		message_broker.add_consumer(storage, RABBITMQ_QUEUE_FINAL)
 		logger.info("Starting consumers.")
 		message_broker.start_consumers()
 
@@ -112,7 +109,7 @@ class Launcher:
 		background_reporter = MySQLBackgroundWorker(Config.report.report_frequency, self.__report, (logger, reporter, metric, db_service), db_service)
 		background_reporter.start()
 
-		return logger, reporter, background_reporter, metric, message_broker_connection_manager, message_broker, storage, db_service
+		return logger, reporter, background_reporter, metric, message_broker, storage, db_service
 
 	# main execution function
 	def __execute(self, logger, metric, message_broker, storage, db_service):
@@ -176,7 +173,7 @@ class Launcher:
 		written_to_db_values_number = 0
 		for value in values:
 			value = serializer.deserialize(value)
-			query = db_query_constructor.construct(value)
+			query = db_query_constructor.construct(ORDER_RECORD_INSERT_PATTERN, value)
 			query_execution_success = db_service.execute(query, len(values))
 			if query_execution_success:
 				written_to_db_values_number += 1
@@ -196,17 +193,20 @@ class Launcher:
 
 		reporter.report(metric)
 
-	def __finish(self, logger, message_broker, message_broker_connection_manager, db_service, background_reporter):
+	def __finish(self, logger, message_broker, db_service, background_reporter):
 		logger.info("Stopping background reporter.")
 		background_reporter.stop()
 		logger.info("Waiting for background reporter to stop.")
 		background_reporter.join()
-		logger.info("Stopping consumers.")
-		message_broker.stop_consumers()
-		logger.info("Closing message broker connection.")
-		message_broker_connection_manager.close_connection(message_broker.connection)
 		logger.info("Closing database connection.")
 		db_service.close_connection()
+		logger.info("Stopping consumers.")
+		message_broker.stop_consumers()
+		logger.info("Waiting for consumers to stop.")
+		for consumer in message_broker.consumers:
+			consumer.join()
+		logger.info("Closing message broker connection.")
+		message_broker.close_connection()
 
 	# main function of Data Generator
 	# starting program execution
@@ -219,7 +219,6 @@ class Launcher:
 		reporter, \
 		background_reporter,\
 		metric,\
-		message_broker_connection_manager,\
 		message_broker,\
 		storage,\
 		db_service = self.__initialize(program_start_time)
@@ -229,4 +228,4 @@ class Launcher:
 		logger.info("Writing report.")
 		self.__report(logger, reporter, metric, db_service)
 		logger.info("Finishing data generator.")
-		self.__finish(logger, message_broker, message_broker_connection_manager, db_service, background_reporter)
+		self.__finish(logger, message_broker, db_service, background_reporter)
