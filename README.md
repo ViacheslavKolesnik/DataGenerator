@@ -35,8 +35,6 @@ Install RabbitMQ:
   - requires Erlang/OTP >=20.3:
     `https://www.erlang.org/downloads/20.3`
 
-Create RabbitMQ exchange, queues, bindings.
-
 Create MySQL database and table with script:
 `table_creation_script.sql`
 
