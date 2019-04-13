@@ -11,9 +11,7 @@ Read data from file.
 Writes data to database.
 ## Requirements
 - python 3.7:
-  - pymysql 0.9.3
-  - pika 0.13.0
-  - protobuf 3.7.1
+  - libraries: `requirements.txt`
 - mysql server 8.0.15
 - rabbitmq 3.7.12:
   - requires Erlang/OTP >=20.3
