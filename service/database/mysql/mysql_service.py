@@ -1,5 +1,5 @@
 import sys
-import pymysql
+import mysql.connector
 import time
 from threading import current_thread
 
@@ -22,7 +22,7 @@ class MySQLService(DataBaseService):
 		try:
 			self._open_connection()
 			self.logger.info("Database connection successfully established.")
-		except pymysql.MySQLError:
+		except mysql.connector.Error:
 			self.logger.warn("Error connecting to database. Reconnecting.")
 			self._reconnect()
 			self.logger.info("Successfully reconnected to database.")
@@ -35,7 +35,7 @@ class MySQLService(DataBaseService):
 			if self.connections[connection_id].open:
 				self.logger.warn("Not opening database connection. It exists and already opened")
 				return
-		connection = pymysql.connect(host=self.host, port=self.port, user=self.user, password=self.password, database=self.database_name)
+		connection = mysql.connector.connect(host=self.host, port=self.port, user=self.user, password=self.password, database=self.database_name)
 		self.connections[connection_id] = connection
 
 	def close_connection(self):
@@ -75,14 +75,15 @@ class MySQLService(DataBaseService):
 	def execute(self, query, number_of_queries_required_to_commit=1):
 		connection = self._get_current_connection()
 		try:
-			with connection.cursor() as cursor:
-				cursor.execute(query)
+			cursor = connection.cursor()
+			cursor.execute(query)
+			cursor.close()
 			self.uncommitted += 1
 			if self.uncommitted >= number_of_queries_required_to_commit:
 				connection.commit()
 				self.uncommitted = 0
 			return True
-		except pymysql.ProgrammingError as ex:
+		except mysql.connector.ProgrammingError as ex:
 			self.logger.error("ProgrammingError occured while executing query to database: {}".format(sys.exc_info()[0]))
 			self.logger.error(ex)
 			self.logger.error("Query: " + query)
@@ -91,8 +92,8 @@ class MySQLService(DataBaseService):
 			except:
 				pass
 			return False
-		except pymysql.MySQLError as ex:
-			self.logger.error("MySQLError occurred while executing query to database.")
+		except mysql.connector.Error as ex:
+			self.logger.error("Error occurred while executing query to database.")
 			self.logger.error(ex)
 			self.logger.warn("Reconnecting to database.")
 			self._reconnect()
@@ -103,15 +104,16 @@ class MySQLService(DataBaseService):
 		connection = self._get_current_connection()
 		response = None
 		try:
-			with connection.cursor(pymysql.cursors.DictCursor) as cursor:
-				cursor.execute(query)
-				response = cursor.fetchall()
-		except pymysql.ProgrammingError as ex:
+			cursor = connection.cursor(dictionary=True)
+			cursor.execute(query)
+			response = cursor.fetchall()
+			cursor.close()
+		except mysql.connector.ProgrammingError as ex:
 			self.logger.error("ProgrammingError occured while executing query to database: {}".format(sys.exc_info()[0]))
 			self.logger.error(ex)
 			self.logger.error("Query: " + query)
-		except pymysql.MySQLError as ex:
-			self.logger.error("MySQLError occurred while executing query to database.")
+		except mysql.connector.Error as ex:
+			self.logger.error("Error occurred while executing query to database.")
 			self.logger.error(ex)
 			self.logger.warn("Reconnecting to database.")
 			self._reconnect()

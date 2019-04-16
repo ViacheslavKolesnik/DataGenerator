@@ -1,0 +1,23 @@
+version: "3"
+services:
+  mysql:
+    hostname: mysql
+    image: mysql:8.0.15
+    container_name: mysql_8.0.15
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=simcord
+    ports:
+      - 3307:3306
+    volumes:
+      - ./table_creation_script.sql:/docker-entrypoint-initdb.d/table_creation_script.sql
+  rabbitmq:
+    hostname: rabbitmq
+    image: rabbitmq:3.6.1-management
+    container_name: rabbitmq_3.6.1
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    ports:
+      - 15673:15672
+      - 5673:5672
