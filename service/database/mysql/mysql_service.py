@@ -32,7 +32,7 @@ class MySQLService(DataBaseService):
 	def _open_connection(self):
 		connection_id = current_thread().name
 		if connection_id in self.connections:
-			if self.connections[connection_id].open:
+			if self.connections[connection_id].is_connected():
 				self.logger.warn("Not opening database connection. It exists and already opened")
 				return
 		connection = mysql.connector.connect(host=self.host, port=self.port, user=self.user, password=self.password, database=self.database_name)

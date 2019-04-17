@@ -2,7 +2,8 @@ from math import ceil
 from datetime import datetime
 import time
 
-from config.constant.database import ORDER_RECORD_STATISTICS_SELECT_QUERY, ORDER_RECORD_INSERT_PATTERN
+from config.constant.database import ORDER_RECORD_STATISTICS_SELECT_QUERY, ORDER_RECORD_INSERT_PATTERN, \
+	BACKGROUND_DATABASE_WRITING_FREQUENCY
 from config.constant.message_broker import *
 from config.constant.config import DEFAULT_CONFIG_FILES
 from config.constant.other import STORAGE_TO_DB_WRITER_CYCLE_WORK_TIME
@@ -115,7 +116,7 @@ class Launcher:
 		logger.info("Starting background database writer")
 		db_query_constructor = OrderRecordDBQueryConstructor()
 		serializer = OrderRecordSerializer()
-		background_db_writer = MySQLBackgroundWorker(self.__storage_to_db_writer, (storage, logger, serializer, db_query_constructor, db_service, metric), db_service)
+		background_db_writer = MySQLBackgroundWorker(self.__storage_to_db_writer, (storage, logger, serializer, db_query_constructor, db_service, metric), db_service, BACKGROUND_DATABASE_WRITING_FREQUENCY)
 		background_db_writer.start()
 
 		return logger, reporter, background_reporter, background_db_writer, metric, message_broker, storage, db_service, serializer
@@ -138,20 +139,18 @@ class Launcher:
 
 		return metric
 
-	def __storage_to_db_writer(self, storage, logger, serializer, db_query_constructor, db_service, metric):
-		while True:
-			number_of_stored_values = storage.get_amount_stored()
-			number_of_extracted_from_storage_values = storage.get_number_of_extracted()
-			if number_of_stored_values == 0 and number_of_extracted_from_storage_values > 0:
-				break
-			elif number_of_stored_values > 0:
-				values = storage.get(number_of_stored_values)
+	def __storage_to_db_writer(self, storage, logger, serializer, db_query_constructor, db_service, metric, stop_flag):
+		number_of_stored_values = storage.get_amount_stored()
+		if number_of_stored_values >= Config.order.number_of_orders_per_chunk or (stop_flag and number_of_stored_values > 0):
+			values = storage.get(number_of_stored_values)
+
+			write_to_db_success = False
+			while not write_to_db_success:
 				write_to_db_success = self.__write_to_db(logger, serializer, values, db_query_constructor, db_service, metrics=metric.get_database_writing())
 
 				if write_to_db_success:
 					storage.delete(number_of_stored_values)
 
-			time.sleep(STORAGE_TO_DB_WRITER_CYCLE_WORK_TIME)
 
 
 	@timeit
@@ -169,9 +168,11 @@ class Launcher:
 			value = serializer.serialize(value)
 			for publisher in publishers:
 				if routing_key in publisher.routing_keys:
-					publisher.publish(routing_key, value)
+					publish_success = False
+					while not publish_success:
+						publish_success = publisher.publish(routing_key, value)
+					published_values_number += 1
 					break
-			published_values_number += 1
 		logger.debug("Published {0} values.".format(published_values_number))
 
 
@@ -189,21 +190,30 @@ class Launcher:
 		logger.debug("Written {0} values to db.".format(written_to_db_values_number))
 		return True
 
-	def __prepare_for_final_report(self, logger, background_reporter, background_db_writer):
+	def __prepare_for_final_report(self, logger, background_reporter, background_db_writer, message_broker):
+		logger.info("Waiting for consumers to stop.")
+		consumers_stopped = False
+		while not consumers_stopped:
+			consumers_stopped = message_broker.is_consumers_stopped()
+
+		logger.info("Stopping background database writer.")
+		background_db_writer.stop()
+		logger.info("Waiting for background database writer to stop.")
+		background_db_writer.join()
+
 		logger.info("Stopping background reporter.")
 		background_reporter.stop()
 		logger.info("Waiting for background reporter to stop.")
 		background_reporter.join()
-		logger.info("Waiting for background database writer to stop.")
-		background_db_writer.join()
 
 	# reporting function
 	def __report(self, logger, reporter, metric, db_service, storage):
 		metric.set_received_from_message_broker(storage.get_number_put())
-		db_stats = db_service.execute_select(ORDER_RECORD_STATISTICS_SELECT_QUERY)
-		if not db_stats:
-			logger.warn("Unable to write report, data from database is not available.")
-			return
+		db_stats = None
+		while True:
+			db_stats = db_service.execute_select(ORDER_RECORD_STATISTICS_SELECT_QUERY)
+			if db_stats:
+				break
 		db_stats = db_stats[0]
 		metric.set_db_stats(db_stats)
 
@@ -212,11 +222,6 @@ class Launcher:
 	def __finish(self, logger, message_broker, db_service):
 		logger.info("Closing database connection.")
 		db_service.close_connection()
-		logger.info("Stopping consumers.")
-		message_broker.stop_consumers()
-		logger.info("Waiting for consumers to stop.")
-		for consumer in message_broker.consumers:
-			consumer.join()
 		logger.info("Closing message broker connection.")
 		message_broker.close_connection()
 
@@ -240,7 +245,7 @@ class Launcher:
 		logger.info("Starting data generator execution.")
 		metric = self.__execute(logger, metric, message_broker, serializer)
 		logger.info("Preparing for final report.")
-		self.__prepare_for_final_report(logger, background_reporter, background_db_writer)
+		self.__prepare_for_final_report(logger, background_reporter, background_db_writer, message_broker)
 		logger.info("Writing final report.")
 		self.__report(logger, reporter, metric, db_service, storage)
 		logger.info("Finishing data generator.")

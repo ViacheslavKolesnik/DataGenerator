@@ -29,6 +29,9 @@ class RabbitMQ(MessageBroker):
 			self.logger.warn("Error connecting to message broker. Reconnecting.")
 			self._reconnect()
 			self.logger.info("Successfully reconnected to message broker.")
+		except Exception:
+			self.logger.fatal("Error connecting to message broker.")
+			exit(EXIT_CODE_MESSAGE_BROKER_CONNECTION_EXCEPTION)
 
 	# opens connection for current thread
 	# append it to connections dictionary using current thread name as tag
@@ -89,7 +92,7 @@ class RabbitMQ(MessageBroker):
 		channel = None
 		try:
 			channel = self.__get_channel()
-		except ConnectionError as ex:
+		except AMQPError as ex:
 			self.logger.warn("Unable to get channel. ConnectionError. Reconnecting to message broker.")
 			self._reconnect()
 			self.logger.info("Successfully reconnected to message broker.")
@@ -98,8 +101,8 @@ class RabbitMQ(MessageBroker):
 			except AMQPError:
 				self.logger.fatal("AMQPError occurred while reopening message broker channel.")
 				exit(EXIT_CODE_AMQP_ERROR)
-		except AMQPError:
-			self.logger.fatal("AMQPError occurred while opening message broker channel.")
+		except Exception:
+			self.logger.fatal("Error occurred while opening message broker channel.")
 			exit(EXIT_CODE_AMQP_ERROR)
 
 		return channel
@@ -115,7 +118,7 @@ class RabbitMQ(MessageBroker):
 		channel = self._get_channel()
 		self.__setup_publisher(channel, exchange, exchange_type, queue, routing_keys)
 
-		publisher = RabbitMQPublisher(self.logger, channel, exchange, routing_keys)
+		publisher = RabbitMQPublisher(self.logger, self, channel, exchange, routing_keys)
 
 		self.publishers.append(publisher)
 
@@ -134,6 +137,13 @@ class RabbitMQ(MessageBroker):
 	def stop_consumers(self):
 		for consumer in self.consumers:
 			consumer.stop()
+
+	def is_consumers_stopped(self):
+		for consumer in self.consumers:
+			stopped = consumer.get_status_stopped()
+			if not stopped:
+				return False
+		return True
 
 	def __setup_publisher(self, channel, exchange, exchange_type, queue, routing_keys):
 		self.__exchange_declare(channel,

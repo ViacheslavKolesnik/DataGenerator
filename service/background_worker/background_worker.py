@@ -7,5 +7,8 @@ class BackgroundWorker(Thread):
 		self.operation = operation
 		self.operation_args = operation_args
 
-	def run(self):
-		self.operation(*self.operation_args)
+	def run(self, *args):
+		if args:
+			self.operation(*self.operation_args, args)
+		else:
+			self.operation(*self.operation_args)
