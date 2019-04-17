@@ -16,6 +16,7 @@ Writes data to database.
 - rabbitmq 3.7.12:
   - requires Erlang/OTP >=20.3
 ## Run steps
+### Regular way
 Install python.
 
 Install additional modules:
@@ -41,6 +42,16 @@ Create MySQL database and table with script:
 Edit configs(DataGenerator/config_files/) according to your database/RabbitMQ and other configurations.
 
 Browse to root project directory and run following in command line: `python launcher.py`.
+### Docker way (Ubuntu)
+Install Docker: `https://docs.docker.com/install/linux/docker-ce/ubuntu/`.
+
+Browse to project root directory and open command line.
+
+Run `docker-compose up` and wait for rabbitmq and mysql to start.
+
+Then run `docker build --tag=data_generator .` to build project.
+
+And `docker run --network datagenerator_default data_generator` to start it.
 ## Run example
 Report:
 ```
