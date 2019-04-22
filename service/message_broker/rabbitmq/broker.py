@@ -117,8 +117,9 @@ class RabbitMQ(MessageBroker):
 	def add_publisher(self, exchange, exchange_type, queue, routing_keys):
 		channel = self._get_channel()
 		self.__setup_publisher(channel, exchange, exchange_type, queue, routing_keys)
+		channel.confirm_delivery()
 
-		publisher = RabbitMQPublisher(self.logger, self, channel, exchange, routing_keys)
+		publisher = RabbitMQPublisher(self.logger, self, exchange, routing_keys)
 
 		self.publishers.append(publisher)
 
@@ -137,6 +138,14 @@ class RabbitMQ(MessageBroker):
 	def stop_consumers(self):
 		for consumer in self.consumers:
 			consumer.stop()
+
+	def start_publishers(self):
+		for publisher in self.publishers:
+			publisher.start()
+
+	def stop_publishers(self):
+		for publisher in self.publishers:
+			publisher.stop()
 
 	def is_consumers_stopped(self):
 		for consumer in self.consumers:

@@ -25,7 +25,15 @@ class DataBaseService(ABC):
 		pass
 
 	@abstractmethod
-	def execute(self, *args, **kwargs):
+	def execute_one(self, *args, **kwargs):
+		pass
+
+	@abstractmethod
+	def execute_many(self, *args, **kwargs):
+		pass
+
+	@abstractmethod
+	def _execute(self, *args, **kwargs):
 		pass
 
 	@abstractmethod

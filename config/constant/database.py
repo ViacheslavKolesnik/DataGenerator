@@ -1,4 +1,5 @@
-BACKGROUND_DATABASE_WRITING_FREQUENCY = 1
+BACKGROUND_DATABASE_WRITING_FREQUENCY = 2
+DATABASE_CLEAR_QUERY = "delete from `order`;"
 ORDER_RECORD_INSERT_PATTERN = "INSERT INTO `order`(id, order_id, cur_pair, direction, status, datetime, init_px, fill_px, init_vol, fill_vol, description, tag) " \
 							  "VALUES({0}, '{1}', '{2}', '{3}', '{4}', {5}, {6}, {7}, {8}, {9}, '{10}', '{11}');"
 ORDER_RECORD_STATISTICS_SELECT_QUERY = """select 

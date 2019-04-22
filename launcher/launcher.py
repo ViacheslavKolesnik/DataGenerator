@@ -1,12 +1,10 @@
 from math import ceil
 from datetime import datetime
-import time
 
 from config.constant.database import ORDER_RECORD_STATISTICS_SELECT_QUERY, ORDER_RECORD_INSERT_PATTERN, \
-	BACKGROUND_DATABASE_WRITING_FREQUENCY
+	BACKGROUND_DATABASE_WRITING_FREQUENCY, DATABASE_CLEAR_QUERY
 from config.constant.message_broker import *
 from config.constant.config import DEFAULT_CONFIG_FILES
-from config.constant.other import STORAGE_TO_DB_WRITER_CYCLE_WORK_TIME
 
 from logger.console.console_logger import ConsoleLogger
 from logger.provider.logger_provider import LoggerProvider
@@ -86,6 +84,8 @@ class Launcher:
 									 [RABBITMQ_QUEUE_BIND_ROUTING_KEY_FILLED,
 									  RABBITMQ_QUEUE_BIND_ROUTING_KEY_PARTIAL_FILLED,
 									  RABBITMQ_QUEUE_BIND_ROUTING_KEY_REJECTED])
+		logger.info("Starting publishers.")
+		message_broker.start_publishers()
 		logger.info("Adding message broker consumers.")
 		message_broker.add_consumer(storage, RABBITMQ_QUEUE_NEW)
 		message_broker.add_consumer(storage, RABBITMQ_QUEUE_TO_PROVIDER)
@@ -102,6 +102,8 @@ class Launcher:
 								  database_name=Config.database.database_name)
 		logger.info("Establishing database connection.")
 		db_service.open_connection()
+		logger.info("Clearing database table.")
+		db_service.execute_one(DATABASE_CLEAR_QUERY)
 
 		logger.info("Initializing reporter.")
 		reporter = ReporterProvider.get_reporter(Config.report.report_output, program_start_time, logger)
@@ -149,9 +151,7 @@ class Launcher:
 				write_to_db_success = self.__write_to_db(logger, serializer, values, db_query_constructor, db_service, metrics=metric.get_database_writing())
 
 				if write_to_db_success:
-					storage.delete(number_of_stored_values)
-
-
+					storage.delete(values)
 
 	@timeit
 	def __generate(self, logger, generator, metric):
@@ -162,39 +162,38 @@ class Launcher:
 
 	@timeit
 	def __publish(self, logger, serializer, publishers, values):
-		published_values_number = 0
 		for value in values:
 			routing_key = value.status.lower().replace(" ", "_")
 			value = serializer.serialize(value)
 			for publisher in publishers:
 				if routing_key in publisher.routing_keys:
-					publish_success = False
-					while not publish_success:
-						publish_success = publisher.publish(routing_key, value)
-					published_values_number += 1
+					publisher.enqueue(routing_key, value)
 					break
-		logger.debug("Published {0} values.".format(published_values_number))
-
 
 	@timeit
 	def __write_to_db(self, logger, serializer, values, db_query_constructor, db_service):
-		written_to_db_values_number = 0
+		queries = MemoryAllocationManager.get_list()
+
 		for value in values:
 			value = serializer.deserialize(value)
 			query = db_query_constructor.construct(ORDER_RECORD_INSERT_PATTERN, value)
-			query_execution_success = db_service.execute(query, len(values))
-			if query_execution_success:
-				written_to_db_values_number += 1
-			else:
-				return False
-		logger.debug("Written {0} values to db.".format(written_to_db_values_number))
+			queries.append(query)
+
+		query_execution_success = db_service.execute_many(queries)
+		if not query_execution_success:
+			logger.debug("Written {0} values to db.".format(len(values)))
+			return False
 		return True
 
 	def __prepare_for_final_report(self, logger, background_reporter, background_db_writer, message_broker):
+		logger.info("Stopping publishers.")
+		message_broker.stop_publishers()
+		logger.info("Waiting for publishers to stop.")
+		for publisher in message_broker.publishers:
+			publisher.join()
 		logger.info("Waiting for consumers to stop.")
-		consumers_stopped = False
-		while not consumers_stopped:
-			consumers_stopped = message_broker.is_consumers_stopped()
+		for consumer in message_broker.consumers:
+			consumer.join()
 
 		logger.info("Stopping background database writer.")
 		background_db_writer.stop()
@@ -208,7 +207,7 @@ class Launcher:
 
 	# reporting function
 	def __report(self, logger, reporter, metric, db_service, storage):
-		metric.set_received_from_message_broker(storage.get_number_put())
+		metric.set_received_from_message_broker(storage.get_history_size())
 		db_stats = None
 		while True:
 			db_stats = db_service.execute_select(ORDER_RECORD_STATISTICS_SELECT_QUERY)

@@ -15,7 +15,6 @@ class MySQLService(DataBaseService):
 		super(__class__, self).__init__(logger, user, password, host, port, database_name)
 
 		self.connections = MemoryAllocationManager.get_dict()
-		self.uncommitted = 0
 
 	def open_connection(self):
 		self.logger.info("Trying to establish database connection.")
@@ -72,16 +71,32 @@ class MySQLService(DataBaseService):
 			exit(EXIT_CODE_MYSQL_CONNECTION_DOES_NOT_EXIST)
 		return connection
 
-	def execute(self, query, number_of_queries_required_to_commit=1):
+	def execute_one(self, query):
+		execution_success = self._execute(query)
+
+		connection = self._get_current_connection()
+		connection.commit()
+
+		return execution_success
+
+	def execute_many(self, queries):
+		execution_success = False
+		connection = self._get_current_connection()
+
+		for query in queries:
+			execution_success = self._execute(query)
+			if not execution_success:
+				return execution_success
+		connection.commit()
+
+		return execution_success
+
+	def _execute(self, query):
 		connection = self._get_current_connection()
 		try:
 			cursor = connection.cursor()
 			cursor.execute(query)
 			cursor.close()
-			self.uncommitted += 1
-			if self.uncommitted >= number_of_queries_required_to_commit:
-				connection.commit()
-				self.uncommitted = 0
 			return True
 		except mysql.connector.ProgrammingError as ex:
 			self.logger.error("ProgrammingError occured while executing query to database: {}".format(sys.exc_info()[0]))
@@ -94,7 +109,7 @@ class MySQLService(DataBaseService):
 			return False
 		except mysql.connector.Error as ex:
 			self.logger.error("Error occurred while executing query to database.")
-			self.logger.error(ex)
+			self.logger.error(ex.__repr__())
 			self.logger.warn("Reconnecting to database.")
 			self._reconnect()
 			self.logger.info("Successfully reconnected to database.")

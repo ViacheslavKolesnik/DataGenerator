@@ -40,8 +40,7 @@ class RabbitMQConsumer(Consumer, Thread):
 				self._on_consume(body)
 				channel.basic_ack(method.delivery_tag)
 		except AMQPError as ex:
-			self.__is_stopped = False
-			self.logger.error("Consumer. AMQPError occured while publishing to RabbitMQ.")
+			self.logger.error("Consumer. AMQPError occurred while consuming from RabbitMQ.")
 			self.logger.error(ex)
 			self.logger.warn("Consumer. Reconnecting to message broker.")
 			self.message_broker._reconnect()

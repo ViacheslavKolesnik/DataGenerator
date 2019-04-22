@@ -9,6 +9,6 @@ class BackgroundWorker(Thread):
 
 	def run(self, *args):
 		if args:
-			self.operation(*self.operation_args, args)
+			self.operation(*self.operation_args, *args)
 		else:
 			self.operation(*self.operation_args)

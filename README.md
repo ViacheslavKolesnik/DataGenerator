@@ -49,9 +49,11 @@ Browse to project root directory and open command line.
 
 Run `docker-compose up` and wait for rabbitmq and mysql to start.
 
-Then run `docker build --tag=data_generator .` to build project.
+Open another console and run `docker build --tag=data_generator .` to build project and create docker image.
 
-And `docker run --network datagenerator_default data_generator` to start it.
+Create and run container `docker run --network datagenerator_default --name=data_generator data_generator`.
+
+To start container again run `docker start data_generator -a`.
 ## Run example
 Report:
 ```
